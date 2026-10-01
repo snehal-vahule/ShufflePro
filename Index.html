@@ -130,17 +130,22 @@
         display: flex;
         align-items: center;
         justify-content: space-between;
+        gap: 8px;
         cursor: pointer;
         user-select: none;
       }
 
       .player-header h2 {
         margin: 0;
+        flex: 1;
+        min-width: 0;
       }
 
       .toggle-btn {
         width: 36px;
         height: 36px;
+        min-width: 36px;
+        min-height: 36px;
         display: inline-flex;
         align-items: center;
         justify-content: center;
@@ -152,6 +157,8 @@
         line-height: 1;
         padding: 0;
         cursor: pointer;
+        flex-shrink: 0;
+        touch-action: manipulation;
       }
 
       .player-card.collapsed .player-card-body {
@@ -245,11 +252,15 @@
       .team-card h3 {
         margin-top: 0;
         margin-bottom: 10px;
+        flex: 1;
+        min-width: 0;
       }
 
       .court-toggle {
         width: 28px;
         height: 28px;
+        min-width: 28px;
+        min-height: 28px;
         display: inline-flex;
         align-items: center;
         justify-content: center;
@@ -261,6 +272,8 @@
         line-height: 1;
         padding: 0;
         cursor: pointer;
+        flex-shrink: 0;
+        touch-action: manipulation;
       }
 
       .court-card.collapsed .court-body {
@@ -327,6 +340,19 @@
       @media (max-width: 760px) {
         .container {
           padding: 14px;
+        }
+
+        .player-header,
+        .court-header {
+          min-height: 36px;
+        }
+
+        .toggle-btn,
+        .court-toggle {
+          width: 32px;
+          height: 32px;
+          min-width: 32px;
+          min-height: 32px;
         }
       }
     </style>
