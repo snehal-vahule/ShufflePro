@@ -141,12 +141,16 @@
       .toggle-btn {
         width: 36px;
         height: 36px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
         border-radius: 50%;
         border: 1px solid var(--line);
         background: #0b1220;
         color: var(--text);
         font-size: 1.3rem;
         line-height: 1;
+        padding: 0;
         cursor: pointer;
       }
 
@@ -228,10 +232,39 @@
         background: rgba(56, 189, 248, 0.08);
       }
 
-      .court-card h3,
+      .court-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        cursor: pointer;
+        user-select: none;
+      }
+
+      .court-header h3,
       .team-card h3 {
         margin-top: 0;
         margin-bottom: 10px;
+      }
+
+      .court-toggle {
+        width: 28px;
+        height: 28px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 50%;
+        border: 1px solid var(--line);
+        background: #0b1220;
+        color: var(--text);
+        font-size: 1.1rem;
+        line-height: 1;
+        padding: 0;
+        cursor: pointer;
+      }
+
+      .court-card.collapsed .court-body {
+        display: none;
       }
 
       .court-card ul,
@@ -819,9 +852,30 @@
           card.dataset.courtIndex = String(index);
           bindDropZone(card, () => movePlayerToCourt(index));
 
+          const header = document.createElement("div");
+          header.className = "court-header";
+
           const title = document.createElement("h3");
           title.textContent = `Court ${index + 1}`;
-          card.appendChild(title);
+
+          const toggle = document.createElement("button");
+          toggle.type = "button";
+          toggle.className = "court-toggle";
+          toggle.textContent = "−";
+          toggle.setAttribute("aria-expanded", "true");
+          toggle.addEventListener("click", (event) => {
+            event.stopPropagation();
+            const isCollapsed = card.classList.toggle("collapsed");
+            toggle.textContent = isCollapsed ? "+" : "−";
+            toggle.setAttribute("aria-expanded", String(!isCollapsed));
+          });
+
+          header.appendChild(title);
+          header.appendChild(toggle);
+          card.appendChild(header);
+
+          const body = document.createElement("div");
+          body.className = "court-body";
 
           const list = document.createElement("ul");
 
@@ -836,7 +890,8 @@
             });
           }
 
-          card.appendChild(list);
+          body.appendChild(list);
+          card.appendChild(body);
           grid.appendChild(card);
         });
 
