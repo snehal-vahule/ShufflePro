@@ -256,6 +256,13 @@
         user-select: none;
       }
 
+      .court-header-controls {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        flex-shrink: 0;
+      }
+
       .court-header h3,
       .team-card h3 {
         margin-top: 0;
@@ -264,6 +271,7 @@
         min-width: 0;
       }
 
+      .court-lock-toggle,
       .court-toggle {
         width: 28px;
         height: 28px;
@@ -276,12 +284,16 @@
         border: 1px solid var(--line);
         background: #0b1220;
         color: var(--text);
-        font-size: 1.1rem;
+        font-size: 0.95rem;
         line-height: 1;
         padding: 0;
         cursor: pointer;
         flex-shrink: 0;
         touch-action: manipulation;
+      }
+
+      .court-card.locked .court-header h3 {
+        color: #cbd5e1;
       }
 
       .court-card.collapsed .court-body {
@@ -372,7 +384,8 @@
         }
 
         .toggle-btn,
-        .court-toggle {
+        .court-toggle,
+        .court-lock-toggle {
           width: 32px;
           height: 32px;
           min-width: 32px;
@@ -450,6 +463,7 @@
     <script>
       const STORAGE_KEY = "shuffleProPlayers";
       const ASSIGNMENT_KEY = "shuffleProAssignments";
+      const LOCKED_COURTS_KEY = "shuffleProLockedCourts";
 
       const skillRankMap = {
         beginner: 1,
@@ -500,6 +514,7 @@
       let players = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]").map(normalizePlayer);
       let currentAssignments = { courts: [], bench: [] };
       const collapsedCourtState = new Set();
+      let lockedCourts = new Set(JSON.parse(localStorage.getItem(LOCKED_COURTS_KEY) || "[]"));
       let draggedPlayer = null;
       let dragGhost = null;
       let dragScrollTimer = null;
@@ -511,6 +526,10 @@
 
       function saveAssignments() {
         localStorage.setItem(ASSIGNMENT_KEY, JSON.stringify(currentAssignments));
+      }
+
+      function saveLockedCourts() {
+        localStorage.setItem(LOCKED_COURTS_KEY, JSON.stringify(Array.from(lockedCourts).sort((a, b) => a - b)));
       }
 
       function getCourtCapacity() {
@@ -631,7 +650,52 @@
       function refreshAssignmentsFromPlayers() {
         const mode = matchType.value;
         const courtTotal = Number(courtCountSelect.value);
-        currentAssignments = generateCourts(players, mode, courtTotal);
+        const lockedSet = new Set(lockedCourts);
+
+        if (players.length === 0) {
+          currentAssignments = { courts: Array.from({ length: courtTotal }, () => []), bench: [] };
+          saveAssignments();
+          return;
+        }
+
+        const lockedPlayers = new Set();
+        const nextCourts = Array.from({ length: courtTotal }, () => []);
+
+        for (let index = 0; index < courtTotal; index++) {
+          const courtPlayers = Array.isArray(currentAssignments.courts[index]) ? currentAssignments.courts[index] : [];
+          if (lockedSet.has(index)) {
+            nextCourts[index] = courtPlayers.filter((player) => players.some((p) => p.id === player.id));
+            nextCourts[index].forEach((player) => lockedPlayers.add(player.id));
+          }
+        }
+
+        const nonLockedPlayers = players.filter((player) => !lockedPlayers.has(player.id));
+        const unlockedCourtCount = Math.max(courtTotal - lockedSet.size, 0);
+
+        if (unlockedCourtCount === 0) {
+          currentAssignments = { courts: nextCourts, bench: [] };
+          saveAssignments();
+          return;
+        }
+
+        const generated = generateCourts(nonLockedPlayers, mode, unlockedCourtCount);
+        const unlockedIndexes = [];
+
+        for (let index = 0; index < courtTotal; index++) {
+          if (!lockedSet.has(index)) unlockedIndexes.push(index);
+        }
+
+        generated.courts.forEach((courtPlayers, index) => {
+          const targetIndex = unlockedIndexes[index];
+          if (typeof targetIndex === "number") {
+            nextCourts[targetIndex] = courtPlayers;
+          }
+        });
+
+        currentAssignments = {
+          courts: nextCourts,
+          bench: generated.bench
+        };
         saveAssignments();
       }
 
@@ -882,6 +946,8 @@
           courtsOutput.innerHTML = '<p class="empty">No court assignments yet.</p>';
           benchList.innerHTML = '<li class="empty">No players on bench.</li>';
           collapsedCourtState.clear();
+          lockedCourts.clear();
+          saveLockedCourts();
           return;
         }
 
@@ -900,6 +966,13 @@
           }
         });
 
+        Array.from(lockedCourts).forEach((courtIndex) => {
+          if (courtIndex < 0 || courtIndex >= courtTotal) {
+            lockedCourts.delete(courtIndex);
+          }
+        });
+        saveLockedCourts();
+
         courtsOutput.innerHTML = "";
         const grid = document.createElement("div");
         grid.className = "court-grid";
@@ -910,6 +983,9 @@
           if (collapsedCourtState.has(index)) {
             card.classList.add("collapsed");
           }
+          if (lockedCourts.has(index)) {
+            card.classList.add("locked");
+          }
           card.dataset.courtIndex = String(index);
           bindDropZone(card, () => movePlayerToCourt(index));
 
@@ -918,6 +994,26 @@
 
           const title = document.createElement("h3");
           title.textContent = `Court ${index + 1}`;
+
+          const controls = document.createElement("div");
+          controls.className = "court-header-controls";
+
+          const lockToggle = document.createElement("button");
+          lockToggle.type = "button";
+          lockToggle.className = "court-lock-toggle";
+          lockToggle.textContent = lockedCourts.has(index) ? "🔒" : "🔓";
+          lockToggle.setAttribute("aria-label", lockedCourts.has(index) ? "Unlock court from shuffling" : "Lock court from shuffling");
+          lockToggle.setAttribute("aria-pressed", String(lockedCourts.has(index)));
+          lockToggle.addEventListener("click", (event) => {
+            event.stopPropagation();
+            if (lockedCourts.has(index)) {
+              lockedCourts.delete(index);
+            } else {
+              lockedCourts.add(index);
+            }
+            saveLockedCourts();
+            renderCourts();
+          });
 
           const toggle = document.createElement("button");
           toggle.type = "button";
@@ -936,8 +1032,10 @@
             toggle.setAttribute("aria-expanded", String(!isCollapsed));
           });
 
+          controls.appendChild(lockToggle);
+          controls.appendChild(toggle);
           header.appendChild(title);
-          header.appendChild(toggle);
+          header.appendChild(controls);
           card.appendChild(header);
 
           const body = document.createElement("div");
@@ -1040,7 +1138,52 @@
           return;
         }
 
-        refreshAssignmentsFromPlayers();
+        const courtTotal = Number(courtCountSelect.value);
+        if (lockedCourts.size >= courtTotal) {
+          alert("Unlock at least one court before shuffling.");
+          return;
+        }
+
+        const mode = matchType.value;
+        const remainingPlayers = players.filter((player) => {
+          return !Array.from(lockedCourts).some((courtIndex) => {
+            const court = currentAssignments.courts[courtIndex] || [];
+            return court.some((courtPlayer) => courtPlayer.id === player.id);
+          });
+        });
+
+        if (remainingPlayers.length === 0) {
+          alert("All players are on locked courts.");
+          return;
+        }
+
+        const unlockedCourtCount = Math.max(courtTotal - lockedCourts.size, 0);
+        const generated = generateCourts(remainingPlayers, mode, unlockedCourtCount);
+        const nextCourts = Array.from({ length: courtTotal }, () => []);
+        const unlockedIndexes = [];
+
+        for (let index = 0; index < courtTotal; index++) {
+          if (!lockedCourts.has(index)) {
+            unlockedIndexes.push(index);
+          }
+        }
+
+        Array.from(lockedCourts).forEach((courtIndex) => {
+          nextCourts[courtIndex] = [...(currentAssignments.courts[courtIndex] || [])];
+        });
+
+        generated.courts.forEach((courtPlayers, index) => {
+          const targetIndex = unlockedIndexes[index];
+          if (typeof targetIndex === "number") {
+            nextCourts[targetIndex] = courtPlayers;
+          }
+        });
+
+        currentAssignments = {
+          courts: nextCourts,
+          bench: generated.bench
+        };
+        saveAssignments();
         renderCourts();
       });
 
