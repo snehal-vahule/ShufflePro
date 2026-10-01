@@ -71,6 +71,14 @@
         margin-bottom: 14px;
       }
 
+      .input-row > * {
+        flex: 1 1 180px;
+      }
+
+      .controls > * {
+        flex: 1 1 140px;
+      }
+
       input,
       select,
       button {
@@ -339,6 +347,22 @@
 
       @media (max-width: 760px) {
         .container {
+          padding: 14px;
+        }
+
+        .input-row,
+        .controls {
+          flex-direction: column;
+          align-items: stretch;
+        }
+
+        .input-row > *,
+        .controls > * {
+          width: 100%;
+          flex-basis: 100%;
+        }
+
+        .panel {
           padding: 14px;
         }
 
