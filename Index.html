@@ -1,0 +1,608 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ShufflePro</title>
+    <style>
+      :root {
+        --bg: #0f172a;
+        --panel: #111827;
+        --card: #1f2937;
+        --line: #374151;
+        --text: #f8fafc;
+        --muted: #cbd5e1;
+        --primary: #22c55e;
+        --primary-dark: #16a34a;
+        --danger: #ef4444;
+        --accent: #38bdf8;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        font-family: Arial, sans-serif;
+        background: linear-gradient(135deg, #0f172a, #1e293b);
+        color: var(--text);
+      }
+
+      .container {
+        max-width: 1100px;
+        margin: 40px auto;
+        padding: 20px;
+      }
+
+      .header {
+        text-align: center;
+        margin-bottom: 24px;
+      }
+
+      .header h1 {
+        margin: 0;
+        font-size: 2.3rem;
+      }
+
+      .header p {
+        color: var(--muted);
+        margin-top: 8px;
+      }
+
+      .panel,
+      .card {
+        background: rgba(17, 24, 39, 0.95);
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        padding: 18px;
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+      }
+
+      .input-row,
+      .controls {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+        align-items: center;
+      }
+
+      .input-row {
+        margin-bottom: 14px;
+      }
+
+      input,
+      select,
+      button {
+        border-radius: 10px;
+        border: 1px solid var(--line);
+        padding: 12px 14px;
+        font-size: 1rem;
+      }
+
+      input,
+      select {
+        background: #0b1220;
+        color: var(--text);
+      }
+
+      button {
+        cursor: pointer;
+        font-weight: 600;
+        transition: 0.2s ease;
+      }
+
+      .primary {
+        background: var(--primary);
+        color: #06250d;
+        border-color: var(--primary);
+      }
+
+      .primary:hover {
+        background: var(--primary-dark);
+      }
+
+      .secondary {
+        background: transparent;
+        color: var(--text);
+      }
+
+      .danger {
+        background: transparent;
+        color: #fecaca;
+        border-color: #7f1d1d;
+      }
+
+      .danger:hover {
+        background: rgba(239, 68, 68, 0.12);
+      }
+
+      .card h2 {
+        margin-top: 0;
+        margin-bottom: 12px;
+      }
+
+      .player-card {
+        margin-top: 24px;
+      }
+
+      .player-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        cursor: pointer;
+        user-select: none;
+      }
+
+      .player-header h2 {
+        margin: 0;
+      }
+
+      .toggle-btn {
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        border: 1px solid var(--line);
+        background: #0b1220;
+        color: var(--text);
+        font-size: 1.3rem;
+        line-height: 1;
+        cursor: pointer;
+      }
+
+      .player-card.collapsed .player-card-body {
+        display: none;
+      }
+
+      .player-list {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+
+      .player-item {
+        background: #0b1220;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 10px 12px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .player-meta {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 42px;
+        height: 30px;
+        padding: 4px 10px;
+        border-radius: 999px;
+        color: #ffffff;
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        font-weight: 700;
+        font-size: 0.76rem;
+      }
+
+      .badge.skill-beginner {
+        background: #22c55e;
+      }
+
+      .badge.skill-intermediate {
+        background: #38bdf8;
+      }
+
+      .badge.skill-advanced {
+        background: #f97316;
+      }
+
+      .court-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 16px;
+      }
+
+      .court-card,
+      .team-card {
+        background: #0b1220;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 14px;
+      }
+
+      .court-card h3,
+      .team-card h3 {
+        margin-top: 0;
+        margin-bottom: 10px;
+      }
+
+      .court-card ul,
+      .team-card ul {
+        margin: 0;
+        padding-left: 18px;
+        color: var(--muted);
+      }
+
+      .court-card li,
+      #benchList li {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        margin-bottom: 6px;
+      }
+
+      .empty {
+        color: var(--muted);
+        opacity: 0.9;
+      }
+
+      .courts-wrapper {
+        margin-top: 24px;
+      }
+
+      @media (max-width: 760px) {
+        .container {
+          padding: 14px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <header class="header">
+        <h1>ShufflePro</h1>
+        <p>Badminton player shuffling made simple</p>
+      </header>
+
+      <section class="panel">
+        <div class="input-row">
+          <input id="playerName" type="text" placeholder="Player name" aria-label="Player name" />
+          <select id="playerSkill" aria-label="Skill level">
+            <option value="beginner">Beginner</option>
+            <option value="intermediate" selected>Intermediate</option>
+            <option value="advanced">Advanced</option>
+          </select>
+          <button id="addPlayerBtn" class="primary">Add player</button>
+        </div>
+
+        <div class="controls">
+          <label for="matchType">Match type:</label>
+          <select id="matchType">
+            <option value="doubles">Doubles</option>
+            <option value="singles">Singles</option>
+          </select>
+
+          <label for="courtCount">Courts:</label>
+          <select id="courtCount">
+            <option value="1">1</option>
+            <option value="2">2</option>
+            <option value="3">3</option>
+            <option value="4" selected>4</option>
+            <option value="5">5</option>
+            <option value="6">6</option>
+          </select>
+
+          <button id="shuffleBtn" class="primary">Shuffle courts</button>
+          <button id="resetBtn" class="secondary">Clear all</button>
+        </div>
+      </section>
+
+      <section class="card player-card" id="playersSection">
+        <div class="player-header" id="playerToggle" aria-label="Toggle player list">
+          <h2>Players</h2>
+          <button type="button" class="toggle-btn" aria-expanded="true">−</button>
+        </div>
+
+        <div class="player-card-body">
+          <ul id="playerList" class="player-list"></ul>
+        </div>
+      </section>
+
+      <section class="card courts-wrapper">
+        <h2>Courts</h2>
+        <div id="courtsOutput" class="court-grid">
+          <p class="empty">No court assignments yet.</p>
+        </div>
+
+        <div class="team-card" style="margin-top: 18px;">
+          <h3>Bench</h3>
+          <ul id="benchList">
+            <li class="empty">No players on bench.</li>
+          </ul>
+        </div>
+      </section>
+    </div>
+
+    <script>
+      const STORAGE_KEY = "shuffleProPlayers";
+
+      const skillRankMap = {
+        beginner: 1,
+        intermediate: 2,
+        advanced: 3
+      };
+
+      function getSkillRank(skill) {
+        const value = String(skill || "beginner").toLowerCase();
+        return skillRankMap[value] ?? 1;
+      }
+
+      function getSkillLabel(skill) {
+        const value = String(skill || "beginner").toLowerCase();
+        if (value === "beginner") return "Beginner";
+        if (value === "intermediate") return "Intermediate";
+        return "Advanced";
+      }
+
+      const playerNameInput = document.getElementById("playerName");
+      const playerSkillSelect = document.getElementById("playerSkill");
+      const addPlayerBtn = document.getElementById("addPlayerBtn");
+      const shuffleBtn = document.getElementById("shuffleBtn");
+      const resetBtn = document.getElementById("resetBtn");
+      const playerList = document.getElementById("playerList");
+      const courtsOutput = document.getElementById("courtsOutput");
+      const matchType = document.getElementById("matchType");
+      const courtCountSelect = document.getElementById("courtCount");
+
+      let players = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]").map((player) => ({
+        ...player,
+        skill: String(player.skill || "beginner").toLowerCase(),
+        skillRank: getSkillRank(player.skill)
+      }));
+
+      function savePlayers() {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(players));
+      }
+
+      function createPlayerMeta(player) {
+        const meta = document.createElement("div");
+        meta.className = "player-meta";
+
+        const label = document.createElement("span");
+        label.textContent = player.name;
+
+        const badge = document.createElement("span");
+        badge.className = `badge skill-${String(player.skill || "beginner").toLowerCase()}`;
+        badge.textContent = getSkillLabel(player.skill);
+
+        meta.appendChild(label);
+        meta.appendChild(badge);
+
+        return meta;
+      }
+
+      function renderPlayers() {
+        playerList.innerHTML = "";
+
+        if (players.length === 0) {
+          const li = document.createElement("li");
+          li.className = "empty";
+          li.textContent = "No players added yet.";
+          playerList.appendChild(li);
+          return;
+        }
+
+        players.forEach((player, index) => {
+          const item = document.createElement("li");
+          item.className = "player-item";
+
+          const meta = createPlayerMeta(player);
+
+          const deleteBtn = document.createElement("button");
+          deleteBtn.className = "danger";
+          deleteBtn.textContent = "Remove";
+          deleteBtn.addEventListener("click", () => {
+            players.splice(index, 1);
+            savePlayers();
+            renderPlayers();
+            renderCourts();
+          });
+
+          item.appendChild(meta);
+          item.appendChild(deleteBtn);
+          playerList.appendChild(item);
+        });
+      }
+
+      function shuffleArray(arr) {
+        const copy = [...arr];
+        for (let i = copy.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [copy[i], copy[j]] = [copy[j], copy[i]];
+        }
+        return copy;
+      }
+
+      function mixPlayersBySkill(selectedPlayers) {
+        const groups = {
+          beginner: [],
+          intermediate: [],
+          advanced: []
+        };
+
+        selectedPlayers.forEach((player) => {
+          const key = String(player.skill || "beginner").toLowerCase();
+          if (!groups[key]) groups[key] = [];
+          groups[key].push(player);
+        });
+
+        const mixed = [];
+
+        Object.keys(groups).forEach((key) => {
+          const shuffledGroup = shuffleArray(groups[key]);
+          shuffledGroup.forEach((player) => mixed.push(player));
+        });
+
+        return shuffleArray(mixed);
+      }
+
+      function generateCourts(selectedPlayers, mode, courtTotal) {
+        if (selectedPlayers.length === 0) {
+          return {
+            courts: Array.from({ length: courtTotal }, () => []),
+            bench: []
+          };
+        }
+
+        const playersPerCourt = mode === "singles" ? 1 : 4;
+        const maxCourtPlayers = courtTotal * playersPerCourt;
+
+        const mixed = mixPlayersBySkill(selectedPlayers);
+        const activePlayers = mixed.slice(0, Math.min(mixed.length, maxCourtPlayers));
+        const bench = mixed.slice(Math.min(mixed.length, maxCourtPlayers));
+
+        const courts = Array.from({ length: courtTotal }, () => []);
+
+        activePlayers.forEach((player, index) => {
+          const courtIndex =
+            mode === "singles"
+              ? index % courtTotal
+              : Math.floor(index / playersPerCourt) % courtTotal;
+
+          courts[courtIndex].push(player);
+        });
+
+        return { courts, bench };
+      }
+
+      function renderCourts() {
+        const mode = matchType.value;
+        const courtTotal = Number(courtCountSelect.value);
+        const { courts, bench } = generateCourts(players, mode, courtTotal);
+
+        courtsOutput.innerHTML = "";
+
+        if (players.length === 0) {
+          courtsOutput.innerHTML = '<p class="empty">No court assignments yet.</p>';
+        } else {
+          const grid = document.createElement("div");
+          grid.className = "court-grid";
+
+          courts.forEach((court, index) => {
+            const card = document.createElement("div");
+            card.className = "court-card";
+
+            const title = document.createElement("h3");
+            title.textContent = `Court ${index + 1}`;
+            card.appendChild(title);
+
+            const list = document.createElement("ul");
+
+            if (court.length === 0) {
+              const li = document.createElement("li");
+              li.textContent = "No players";
+              list.appendChild(li);
+            } else {
+              court.forEach((player) => {
+                const li = document.createElement("li");
+                li.appendChild(createPlayerMeta(player));
+                list.appendChild(li);
+              });
+            }
+
+            card.appendChild(list);
+            grid.appendChild(card);
+          });
+
+          courtsOutput.appendChild(grid);
+        }
+
+        const benchList = document.getElementById("benchList");
+        benchList.innerHTML = "";
+
+        if (bench.length === 0) {
+          benchList.innerHTML = "<li>All players assigned to courts.</li>";
+          return;
+        }
+
+        bench.forEach((player) => {
+          const li = document.createElement("li");
+          li.appendChild(createPlayerMeta(player));
+          benchList.appendChild(li);
+        });
+      }
+
+      function addPlayer() {
+        const name = playerNameInput.value.trim();
+        const skill = playerSkillSelect.value;
+
+        if (!name) {
+          alert("Please enter a player name.");
+          playerNameInput.focus();
+          return;
+        }
+
+        players.push({
+          name,
+          skill: String(skill).toLowerCase()
+        });
+
+        savePlayers();
+        renderPlayers();
+        renderCourts();
+
+        playerNameInput.value = "";
+        playerNameInput.focus();
+      }
+
+      function clearAll() {
+        if (players.length === 0) return;
+
+        const confirmClear = confirm("Remove all players and reset the courts?");
+        if (!confirmClear) return;
+
+        players = [];
+        savePlayers();
+        renderPlayers();
+        renderCourts();
+      }
+
+      const playersSection = document.getElementById("playersSection");
+      const playerToggle = document.getElementById("playerToggle");
+      const toggleBtn = document.querySelector(".toggle-btn");
+
+      function togglePlayersSection() {
+        const isCollapsed = playersSection.classList.toggle("collapsed");
+        toggleBtn.textContent = isCollapsed ? "+" : "−";
+        toggleBtn.setAttribute("aria-expanded", String(!isCollapsed));
+      }
+
+      addPlayerBtn.addEventListener("click", addPlayer);
+
+      playerNameInput.addEventListener("keydown", (event) => {
+        if (event.key === "Enter") {
+          addPlayer();
+        }
+      });
+
+      shuffleBtn.addEventListener("click", () => {
+        if (players.length < 2) {
+          alert("Add at least 2 players to shuffle courts.");
+          return;
+        }
+
+        renderCourts();
+      });
+
+      resetBtn.addEventListener("click", clearAll);
+      matchType.addEventListener("change", renderCourts);
+      courtCountSelect.addEventListener("change", renderCourts);
+      playerToggle.addEventListener("click", togglePlayersSection);
+
+      renderPlayers();
+      renderCourts();
+    </script>
+  </body>
+</html>
