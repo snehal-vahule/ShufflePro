@@ -574,6 +574,15 @@
         dragGhost.style.left = `${event.clientX}px`;
         dragGhost.style.top = `${event.clientY}px`;
 
+        const scrollThreshold = 24;
+        const viewportHeight = window.innerHeight;
+
+        if (event.clientY < scrollThreshold) {
+          window.scrollBy({ top: -18, behavior: "auto" });
+        } else if (event.clientY > viewportHeight - scrollThreshold) {
+          window.scrollBy({ top: 18, behavior: "auto" });
+        }
+
         const target = document.elementFromPoint(event.clientX, event.clientY);
         const courtCard = target ? target.closest(".court-card") : null;
         const benchCard = target ? target.closest("#benchList") : null;
