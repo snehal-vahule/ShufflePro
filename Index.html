@@ -294,8 +294,26 @@
         touch-action: manipulation;
       }
 
+      .court-lock-toggle {
+        background: rgba(59, 130, 246, 0.14);
+        color: #93c5fd;
+        border-color: rgba(96, 165, 250, 0.65);
+      }
+
+      .court-lock-toggle[aria-pressed="false"] {
+        background: rgba(34, 197, 94, 0.16);
+        color: #86efac;
+        border-color: rgba(74, 222, 128, 0.8);
+      }
+
+      .court-lock-toggle[aria-pressed="true"] {
+        background: rgba(239, 68, 68, 0.16);
+        color: #fca5a5;
+        border-color: rgba(248, 113, 113, 0.85);
+      }
+
       .court-card.locked .court-header h3 {
-        color: #cbd5e1;
+        color: #fca5a5;
       }
 
       .court-card.collapsed .court-body {
@@ -1007,9 +1025,13 @@
           const lockToggle = document.createElement("button");
           lockToggle.type = "button";
           lockToggle.className = "court-lock-toggle";
-          lockToggle.textContent = lockedCourts.has(index) ? "🔒" : "🔓";
-          lockToggle.setAttribute("aria-label", lockedCourts.has(index) ? "Unlock court from shuffling" : "Lock court from shuffling");
-          lockToggle.setAttribute("aria-pressed", String(lockedCourts.has(index)));
+          const isCourtLocked = lockedCourts.has(index);
+          lockToggle.textContent = isCourtLocked ? "🔒" : "🔓";
+          lockToggle.setAttribute("aria-label", isCourtLocked ? "Unlock court from shuffling" : "Lock court from shuffling");
+          lockToggle.setAttribute("aria-pressed", String(isCourtLocked));
+          lockToggle.style.backgroundColor = isCourtLocked ? "rgba(239, 68, 68, 0.18)" : "rgba(34, 197, 94, 0.18)";
+          lockToggle.style.color = isCourtLocked ? "#fca5a5" : "#86efac";
+          lockToggle.style.borderColor = isCourtLocked ? "rgba(248, 113, 113, 0.9)" : "rgba(74, 222, 128, 0.9)";
           lockToggle.addEventListener("click", (event) => {
             event.stopPropagation();
             if (lockedCourts.has(index)) {
