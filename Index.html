@@ -565,6 +565,14 @@
         document.removeEventListener("pointermove", moveDragGhost);
         document.removeEventListener("pointerup", handlePointerDrop);
 
+        if (draggedPlayer && draggedPlayer.element && draggedPlayer.element.hasPointerCapture) {
+          try {
+            draggedPlayer.element.releasePointerCapture(draggedPlayer.pointerId);
+          } catch (error) {
+            // ignore if there is no active capture
+          }
+        }
+
         document.querySelectorAll(".court-card, #benchList").forEach((element) => {
           element.classList.remove("drag-over");
         });
@@ -598,6 +606,7 @@
       function moveDragGhost(event) {
         if (!dragGhost) return;
 
+        event.preventDefault();
         lastPointerEvent = event;
         dragGhost.style.left = `${event.clientX}px`;
         dragGhost.style.top = `${event.clientY}px`;
@@ -614,6 +623,7 @@
       function handlePointerDrop(event) {
         if (!draggedPlayer) return;
 
+        event.preventDefault();
         const target = document.elementFromPoint(event.clientX, event.clientY);
         const courtCard = target ? target.closest(".court-card") : null;
         const benchListTarget = target ? target.closest("#benchList") : null;
@@ -638,12 +648,14 @@
         }
 
         event.preventDefault();
+        item.setPointerCapture?.(event.pointerId);
 
         draggedPlayer = {
           player,
           sourceCourtIndex: options.courtIndex ?? null,
           sourceBenchIndex: options.type === "bench" ? options.benchIndex ?? null : null,
-          element: item
+          element: item,
+          pointerId: event.pointerId
         };
 
         item.classList.add("dragging");
