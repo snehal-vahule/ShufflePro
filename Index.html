@@ -219,6 +219,13 @@
         border: 1px solid var(--line);
         border-radius: 12px;
         padding: 14px;
+        transition: border-color 0.2s ease, background 0.2s ease, transform 0.2s ease;
+      }
+
+      .court-card.drag-over,
+      .team-card.drag-over {
+        border-color: var(--accent);
+        background: rgba(56, 189, 248, 0.08);
       }
 
       .court-card h3,
@@ -241,6 +248,21 @@
         justify-content: space-between;
         gap: 8px;
         margin-bottom: 6px;
+      }
+
+      .court-player,
+      .bench-player {
+        cursor: grab;
+        padding: 8px 10px;
+        border-radius: 10px;
+        border: 1px solid var(--line);
+        background: rgba(15, 23, 42, 0.75);
+      }
+
+      .court-player.dragging,
+      .bench-player.dragging {
+        opacity: 0.55;
+        cursor: grabbing;
       }
 
       .empty {
@@ -327,12 +349,21 @@
 
     <script>
       const STORAGE_KEY = "shuffleProPlayers";
+      const ASSIGNMENT_KEY = "shuffleProAssignments";
 
       const skillRankMap = {
         beginner: 1,
         intermediate: 2,
         advanced: 3
       };
+
+      function makePlayerId() {
+        if (window.crypto && typeof window.crypto.randomUUID === "function") {
+          return window.crypto.randomUUID();
+        }
+
+        return `player-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+      }
 
       function getSkillRank(skill) {
         const value = String(skill || "beginner").toLowerCase();
@@ -346,6 +377,15 @@
         return "Advanced";
       }
 
+      function normalizePlayer(player) {
+        return {
+          ...player,
+          id: player.id || makePlayerId(),
+          skill: String(player.skill || "beginner").toLowerCase(),
+          skillRank: getSkillRank(player.skill)
+        };
+      }
+
       const playerNameInput = document.getElementById("playerName");
       const playerSkillSelect = document.getElementById("playerSkill");
       const addPlayerBtn = document.getElementById("addPlayerBtn");
@@ -355,15 +395,22 @@
       const courtsOutput = document.getElementById("courtsOutput");
       const matchType = document.getElementById("matchType");
       const courtCountSelect = document.getElementById("courtCount");
+      const benchList = document.getElementById("benchList");
 
-      let players = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]").map((player) => ({
-        ...player,
-        skill: String(player.skill || "beginner").toLowerCase(),
-        skillRank: getSkillRank(player.skill)
-      }));
+      let players = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]").map(normalizePlayer);
+      let currentAssignments = { courts: [], bench: [] };
+      let draggedPlayer = null;
 
       function savePlayers() {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(players));
+      }
+
+      function saveAssignments() {
+        localStorage.setItem(ASSIGNMENT_KEY, JSON.stringify(currentAssignments));
+      }
+
+      function getCourtCapacity() {
+        return matchType.value === "singles" ? 1 : 4;
       }
 
       function createPlayerMeta(player) {
@@ -397,7 +444,6 @@
         players.forEach((player, index) => {
           const item = document.createElement("li");
           item.className = "player-item";
-
           const meta = createPlayerMeta(player);
 
           const deleteBtn = document.createElement("button");
@@ -406,6 +452,7 @@
           deleteBtn.addEventListener("click", () => {
             players.splice(index, 1);
             savePlayers();
+            refreshAssignmentsFromPlayers();
             renderPlayers();
             renderCourts();
           });
@@ -477,59 +524,185 @@
         return { courts, bench };
       }
 
-      function renderCourts() {
+      function refreshAssignmentsFromPlayers() {
         const mode = matchType.value;
         const courtTotal = Number(courtCountSelect.value);
-        const { courts, bench } = generateCourts(players, mode, courtTotal);
+        currentAssignments = generateCourts(players, mode, courtTotal);
+        saveAssignments();
+      }
 
-        courtsOutput.innerHTML = "";
+      function createDraggablePlayerItem(player, options = {}) {
+        const item = document.createElement("li");
+        item.className = options.type === "bench" ? "bench-player" : "court-player";
+        item.draggable = true;
+        item.dataset.playerId = player.id;
+        item.appendChild(createPlayerMeta(player));
 
-        if (players.length === 0) {
-          courtsOutput.innerHTML = '<p class="empty">No court assignments yet.</p>';
-        } else {
-          const grid = document.createElement("div");
-          grid.className = "court-grid";
+        item.addEventListener("dragstart", (event) => {
+          draggedPlayer = {
+            player,
+            sourceCourtIndex: options.courtIndex ?? null,
+            sourceBenchIndex: options.type === "bench" ? options.benchIndex ?? null : null,
+          };
+          item.classList.add("dragging");
+          if (event.dataTransfer) {
+            event.dataTransfer.effectAllowed = "move";
+            event.dataTransfer.setData("text/plain", player.id);
+          }
+        });
 
-          courts.forEach((court, index) => {
-            const card = document.createElement("div");
-            card.className = "court-card";
+        item.addEventListener("dragend", () => {
+          item.classList.remove("dragging");
+          draggedPlayer = null;
+        });
 
-            const title = document.createElement("h3");
-            title.textContent = `Court ${index + 1}`;
-            card.appendChild(title);
+        return item;
+      }
 
-            const list = document.createElement("ul");
+      function movePlayerToCourt(targetCourtIndex) {
+        if (!draggedPlayer) return;
 
-            if (court.length === 0) {
-              const li = document.createElement("li");
-              li.textContent = "No players";
-              list.appendChild(li);
-            } else {
-              court.forEach((player) => {
-                const li = document.createElement("li");
-                li.appendChild(createPlayerMeta(player));
-                list.appendChild(li);
-              });
-            }
+        const { player, sourceCourtIndex, sourceBenchIndex } = draggedPlayer;
+        const targetCourt = currentAssignments.courts[targetCourtIndex];
+        const playerAlreadyInTarget = targetCourt.some((courtPlayer) => courtPlayer.id === player.id);
 
-            card.appendChild(list);
-            grid.appendChild(card);
-          });
-
-          courtsOutput.appendChild(grid);
-        }
-
-        const benchList = document.getElementById("benchList");
-        benchList.innerHTML = "";
-
-        if (bench.length === 0) {
-          benchList.innerHTML = "<li>All players assigned to courts.</li>";
+        if (sourceCourtIndex === targetCourtIndex || playerAlreadyInTarget) {
           return;
         }
 
-        bench.forEach((player) => {
-          const li = document.createElement("li");
-          li.appendChild(createPlayerMeta(player));
+        if (targetCourt.length >= getCourtCapacity()) {
+          alert("This court is full.");
+          return;
+        }
+
+        if (sourceCourtIndex !== null) {
+          const sourceCourt = currentAssignments.courts[sourceCourtIndex];
+          const sourceIndex = sourceCourt.findIndex((courtPlayer) => courtPlayer.id === player.id);
+          if (sourceIndex >= 0) {
+            sourceCourt.splice(sourceIndex, 1);
+          }
+        }
+
+        if (sourceBenchIndex !== null) {
+          const sourceIndex = currentAssignments.bench.findIndex((benchPlayer) => benchPlayer.id === player.id);
+          if (sourceIndex >= 0) {
+            currentAssignments.bench.splice(sourceIndex, 1);
+          }
+        }
+
+        targetCourt.push(player);
+        saveAssignments();
+        renderCourts();
+      }
+
+      function movePlayerToBench() {
+        if (!draggedPlayer) return;
+
+        const { player, sourceCourtIndex, sourceBenchIndex } = draggedPlayer;
+
+        if (sourceBenchIndex !== null) {
+          return;
+        }
+
+        if (sourceCourtIndex !== null) {
+          const sourceCourt = currentAssignments.courts[sourceCourtIndex];
+          const sourceIndex = sourceCourt.findIndex((courtPlayer) => courtPlayer.id === player.id);
+          if (sourceIndex >= 0) {
+            sourceCourt.splice(sourceIndex, 1);
+          }
+        }
+
+        const existingBenchIndex = currentAssignments.bench.findIndex((benchPlayer) => benchPlayer.id === player.id);
+        if (existingBenchIndex >= 0) {
+          currentAssignments.bench.splice(existingBenchIndex, 1);
+        }
+
+        currentAssignments.bench.push(player);
+        saveAssignments();
+        renderCourts();
+      }
+
+      function bindDropZone(element, onDrop) {
+        element.addEventListener("dragover", (event) => {
+          event.preventDefault();
+          element.classList.add("drag-over");
+        });
+
+        element.addEventListener("dragleave", () => {
+          element.classList.remove("drag-over");
+        });
+
+        element.addEventListener("drop", (event) => {
+          event.preventDefault();
+          element.classList.remove("drag-over");
+          onDrop();
+        });
+      }
+
+      function renderCourts() {
+        const mode = matchType.value;
+        const courtTotal = Number(courtCountSelect.value);
+
+        let courts = currentAssignments.courts;
+        let bench = currentAssignments.bench;
+
+        if (players.length === 0) {
+          courtsOutput.innerHTML = '<p class="empty">No court assignments yet.</p>';
+          benchList.innerHTML = '<li class="empty">No players on bench.</li>';
+          return;
+        }
+
+        if (!Array.isArray(currentAssignments.courts) || currentAssignments.courts.length !== courtTotal) {
+          const generated = generateCourts(players, mode, courtTotal);
+          courts = generated.courts;
+          bench = generated.bench;
+        }
+
+        currentAssignments = { courts, bench };
+        saveAssignments();
+
+        courtsOutput.innerHTML = "";
+        const grid = document.createElement("div");
+        grid.className = "court-grid";
+
+        courts.forEach((court, index) => {
+          const card = document.createElement("div");
+          card.className = "court-card";
+          bindDropZone(card, () => movePlayerToCourt(index));
+
+          const title = document.createElement("h3");
+          title.textContent = `Court ${index + 1}`;
+          card.appendChild(title);
+
+          const list = document.createElement("ul");
+
+          if (court.length === 0) {
+            const li = document.createElement("li");
+            li.textContent = "No players";
+            list.appendChild(li);
+          } else {
+            court.forEach((player) => {
+              const li = createDraggablePlayerItem(player, { type: "court", courtIndex: index });
+              list.appendChild(li);
+            });
+          }
+
+          card.appendChild(list);
+          grid.appendChild(card);
+        });
+
+        courtsOutput.appendChild(grid);
+
+        benchList.innerHTML = "";
+        bindDropZone(benchList, movePlayerToBench);
+
+        if (bench.length === 0) {
+          benchList.innerHTML = "<li class=\"empty\">All players assigned to courts.</li>";
+          return;
+        }
+
+        bench.forEach((player, index) => {
+          const li = createDraggablePlayerItem(player, { type: "bench", benchIndex: index });
           benchList.appendChild(li);
         });
       }
@@ -545,11 +718,13 @@
         }
 
         players.push({
+          id: makePlayerId(),
           name,
           skill: String(skill).toLowerCase()
         });
 
         savePlayers();
+        refreshAssignmentsFromPlayers();
         renderPlayers();
         renderCourts();
 
@@ -564,6 +739,7 @@
         if (!confirmClear) return;
 
         players = [];
+        localStorage.removeItem(ASSIGNMENT_KEY);
         savePlayers();
         renderPlayers();
         renderCourts();
@@ -593,13 +769,30 @@
           return;
         }
 
+        refreshAssignmentsFromPlayers();
         renderCourts();
       });
 
       resetBtn.addEventListener("click", clearAll);
-      matchType.addEventListener("change", renderCourts);
-      courtCountSelect.addEventListener("change", renderCourts);
+      matchType.addEventListener("change", () => {
+        refreshAssignmentsFromPlayers();
+        renderCourts();
+      });
+      courtCountSelect.addEventListener("change", () => {
+        refreshAssignmentsFromPlayers();
+        renderCourts();
+      });
       playerToggle.addEventListener("click", togglePlayersSection);
+
+      const savedAssignments = JSON.parse(localStorage.getItem(ASSIGNMENT_KEY) || "null");
+      if (savedAssignments && Array.isArray(savedAssignments.courts) && Array.isArray(savedAssignments.bench)) {
+        currentAssignments = {
+          courts: savedAssignments.courts.map((court) => Array.isArray(court) ? court.map(normalizePlayer) : []),
+          bench: Array.isArray(savedAssignments.bench) ? savedAssignments.bench.map(normalizePlayer) : []
+        };
+      } else {
+        refreshAssignmentsFromPlayers();
+      }
 
       renderPlayers();
       renderCourts();
