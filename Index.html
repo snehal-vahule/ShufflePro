@@ -418,6 +418,8 @@
       let currentAssignments = { courts: [], bench: [] };
       let draggedPlayer = null;
       let dragGhost = null;
+      let dragScrollTimer = null;
+      let lastPointerEvent = null;
 
       function savePlayers() {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(players));
@@ -555,6 +557,11 @@
           dragGhost = null;
         }
 
+        if (dragScrollTimer) {
+          clearInterval(dragScrollTimer);
+          dragScrollTimer = null;
+        }
+
         document.removeEventListener("pointermove", moveDragGhost);
         document.removeEventListener("pointerup", handlePointerDrop);
 
@@ -567,21 +574,33 @@
         }
 
         draggedPlayer = null;
+        lastPointerEvent = null;
+      }
+
+      function startAutoScrollLoop() {
+        if (dragScrollTimer) return;
+
+        dragScrollTimer = setInterval(() => {
+          if (!draggedPlayer || !lastPointerEvent) return;
+
+          const scrollThreshold = 80;
+          const viewportHeight = window.innerHeight;
+          const { clientY } = lastPointerEvent;
+
+          if (clientY < scrollThreshold) {
+            window.scrollBy({ top: -18, behavior: "auto" });
+          } else if (clientY > viewportHeight - scrollThreshold) {
+            window.scrollBy({ top: 18, behavior: "auto" });
+          }
+        }, 16);
       }
 
       function moveDragGhost(event) {
         if (!dragGhost) return;
+
+        lastPointerEvent = event;
         dragGhost.style.left = `${event.clientX}px`;
         dragGhost.style.top = `${event.clientY}px`;
-
-        const scrollThreshold = 24;
-        const viewportHeight = window.innerHeight;
-
-        if (event.clientY < scrollThreshold) {
-          window.scrollBy({ top: -18, behavior: "auto" });
-        } else if (event.clientY > viewportHeight - scrollThreshold) {
-          window.scrollBy({ top: 18, behavior: "auto" });
-        }
 
         const target = document.elementFromPoint(event.clientX, event.clientY);
         const courtCard = target ? target.closest(".court-card") : null;
@@ -633,7 +652,9 @@
         dragGhost.className = "drag-ghost";
         dragGhost.textContent = player.name;
         document.body.appendChild(dragGhost);
+        lastPointerEvent = event;
         moveDragGhost(event);
+        startAutoScrollLoop();
 
         document.addEventListener("pointermove", moveDragGhost);
         document.addEventListener("pointerup", handlePointerDrop, { once: true });
