@@ -475,6 +475,7 @@
 
       let players = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]").map(normalizePlayer);
       let currentAssignments = { courts: [], bench: [] };
+      const collapsedCourtState = new Set();
       let draggedPlayer = null;
       let dragGhost = null;
       let dragScrollTimer = null;
@@ -856,6 +857,7 @@
         if (players.length === 0) {
           courtsOutput.innerHTML = '<p class="empty">No court assignments yet.</p>';
           benchList.innerHTML = '<li class="empty">No players on bench.</li>';
+          collapsedCourtState.clear();
           return;
         }
 
@@ -868,6 +870,12 @@
         currentAssignments = { courts, bench };
         saveAssignments();
 
+        Array.from(collapsedCourtState).forEach((courtIndex) => {
+          if (courtIndex < 0 || courtIndex >= courtTotal) {
+            collapsedCourtState.delete(courtIndex);
+          }
+        });
+
         courtsOutput.innerHTML = "";
         const grid = document.createElement("div");
         grid.className = "court-grid";
@@ -875,6 +883,9 @@
         courts.forEach((court, index) => {
           const card = document.createElement("div");
           card.className = "court-card";
+          if (collapsedCourtState.has(index)) {
+            card.classList.add("collapsed");
+          }
           card.dataset.courtIndex = String(index);
           bindDropZone(card, () => movePlayerToCourt(index));
 
@@ -887,11 +898,16 @@
           const toggle = document.createElement("button");
           toggle.type = "button";
           toggle.className = "court-toggle";
-          toggle.textContent = "−";
-          toggle.setAttribute("aria-expanded", "true");
+          toggle.textContent = collapsedCourtState.has(index) ? "+" : "−";
+          toggle.setAttribute("aria-expanded", String(!collapsedCourtState.has(index)));
           toggle.addEventListener("click", (event) => {
             event.stopPropagation();
             const isCollapsed = card.classList.toggle("collapsed");
+            if (isCollapsed) {
+              collapsedCourtState.add(index);
+            } else {
+              collapsedCourtState.delete(index);
+            }
             toggle.textContent = isCollapsed ? "+" : "−";
             toggle.setAttribute("aria-expanded", String(!isCollapsed));
           });
