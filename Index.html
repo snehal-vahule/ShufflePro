@@ -252,6 +252,7 @@
         align-items: center;
         justify-content: space-between;
         gap: 8px;
+        flex-wrap: wrap;
         cursor: pointer;
         user-select: none;
       }
@@ -261,6 +262,7 @@
         align-items: center;
         gap: 6px;
         flex-shrink: 0;
+        margin-left: auto;
       }
 
       .court-header h3,
@@ -381,6 +383,10 @@
         .player-header,
         .court-header {
           min-height: 36px;
+        }
+
+        .court-header {
+          row-gap: 6px;
         }
 
         .toggle-btn,
