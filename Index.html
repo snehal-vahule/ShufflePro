@@ -257,12 +257,29 @@
         border-radius: 10px;
         border: 1px solid var(--line);
         background: rgba(15, 23, 42, 0.75);
+        touch-action: none;
       }
 
       .court-player.dragging,
       .bench-player.dragging {
         opacity: 0.55;
         cursor: grabbing;
+      }
+
+      .drag-ghost {
+        position: fixed;
+        left: 0;
+        top: 0;
+        pointer-events: none;
+        z-index: 9999;
+        transform: translate(-50%, -50%);
+        opacity: 0.9;
+        background: rgba(15, 23, 42, 0.95);
+        border: 1px solid var(--accent);
+        border-radius: 10px;
+        padding: 8px 10px;
+        min-width: 130px;
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.25);
       }
 
       .empty {
@@ -400,6 +417,7 @@
       let players = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]").map(normalizePlayer);
       let currentAssignments = { courts: [], bench: [] };
       let draggedPlayer = null;
+      let dragGhost = null;
 
       function savePlayers() {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(players));
@@ -531,6 +549,87 @@
         saveAssignments();
       }
 
+      function clearDragState() {
+        if (dragGhost) {
+          dragGhost.remove();
+          dragGhost = null;
+        }
+
+        document.removeEventListener("pointermove", moveDragGhost);
+        document.removeEventListener("pointerup", handlePointerDrop);
+
+        document.querySelectorAll(".court-card, #benchList").forEach((element) => {
+          element.classList.remove("drag-over");
+        });
+
+        if (draggedPlayer && draggedPlayer.element) {
+          draggedPlayer.element.classList.remove("dragging");
+        }
+
+        draggedPlayer = null;
+      }
+
+      function moveDragGhost(event) {
+        if (!dragGhost) return;
+        dragGhost.style.left = `${event.clientX}px`;
+        dragGhost.style.top = `${event.clientY}px`;
+
+        const target = document.elementFromPoint(event.clientX, event.clientY);
+        const courtCard = target ? target.closest(".court-card") : null;
+        const benchCard = target ? target.closest("#benchList") : null;
+
+        document.querySelectorAll(".court-card, #benchList").forEach((element) => {
+          element.classList.toggle("drag-over", element === courtCard || element === benchCard);
+        });
+      }
+
+      function handlePointerDrop(event) {
+        if (!draggedPlayer) return;
+
+        const target = document.elementFromPoint(event.clientX, event.clientY);
+        const courtCard = target ? target.closest(".court-card") : null;
+        const benchListTarget = target ? target.closest("#benchList") : null;
+
+        if (courtCard) {
+          const courtIndex = Number(courtCard.dataset.courtIndex);
+          movePlayerToCourt(courtIndex);
+        } else if (benchListTarget) {
+          movePlayerToBench();
+        }
+
+        clearDragState();
+      }
+
+      function startPointerDrag(event, player, options, item) {
+        if (event.pointerType === "mouse" && event.button !== 0) {
+          return;
+        }
+
+        if (event.pointerType === "mouse" && !window.matchMedia("(pointer: coarse)").matches) {
+          return;
+        }
+
+        event.preventDefault();
+
+        draggedPlayer = {
+          player,
+          sourceCourtIndex: options.courtIndex ?? null,
+          sourceBenchIndex: options.type === "bench" ? options.benchIndex ?? null : null,
+          element: item
+        };
+
+        item.classList.add("dragging");
+
+        dragGhost = document.createElement("div");
+        dragGhost.className = "drag-ghost";
+        dragGhost.textContent = player.name;
+        document.body.appendChild(dragGhost);
+        moveDragGhost(event);
+
+        document.addEventListener("pointermove", moveDragGhost);
+        document.addEventListener("pointerup", handlePointerDrop, { once: true });
+      }
+
       function createDraggablePlayerItem(player, options = {}) {
         const item = document.createElement("li");
         item.className = options.type === "bench" ? "bench-player" : "court-player";
@@ -543,6 +642,7 @@
             player,
             sourceCourtIndex: options.courtIndex ?? null,
             sourceBenchIndex: options.type === "bench" ? options.benchIndex ?? null : null,
+            element: item
           };
           item.classList.add("dragging");
           if (event.dataTransfer) {
@@ -553,7 +653,13 @@
 
         item.addEventListener("dragend", () => {
           item.classList.remove("dragging");
-          draggedPlayer = null;
+          if (!dragGhost) {
+            draggedPlayer = null;
+          }
+        });
+
+        item.addEventListener("pointerdown", (event) => {
+          startPointerDrag(event, player, options, item);
         });
 
         return item;
@@ -668,6 +774,7 @@
         courts.forEach((court, index) => {
           const card = document.createElement("div");
           card.className = "court-card";
+          card.dataset.courtIndex = String(index);
           bindDropZone(card, () => movePlayerToCourt(index));
 
           const title = document.createElement("h3");
@@ -695,6 +802,7 @@
 
         benchList.innerHTML = "";
         bindDropZone(benchList, movePlayerToBench);
+        benchList.dataset.benchList = "true";
 
         if (bench.length === 0) {
           benchList.innerHTML = "<li class=\"empty\">All players assigned to courts.</li>";
