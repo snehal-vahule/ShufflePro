@@ -828,6 +828,10 @@
 
         if (courtCard) {
           const courtIndex = Number(courtCard.dataset.courtIndex);
+          if (lockedCourts.has(courtIndex)) {
+            clearDragState();
+            return;
+          }
           movePlayerToCourt(courtIndex);
         } else if (benchListTarget) {
           movePlayerToBench();
@@ -842,6 +846,11 @@
         }
 
         if (event.pointerType === "mouse" && !window.matchMedia("(pointer: coarse)").matches) {
+          return;
+        }
+
+        if (options.type === "court" && typeof options.courtIndex === "number" && lockedCourts.has(options.courtIndex)) {
+          event.preventDefault();
           return;
         }
 
@@ -873,11 +882,16 @@
       function createDraggablePlayerItem(player, options = {}) {
         const item = document.createElement("li");
         item.className = options.type === "bench" ? "bench-player" : "court-player";
-        item.draggable = true;
+        item.draggable = !(options.type === "court" && typeof options.courtIndex === "number" && lockedCourts.has(options.courtIndex));
         item.dataset.playerId = player.id;
         item.appendChild(createPlayerMeta(player));
 
         item.addEventListener("dragstart", (event) => {
+          if (options.type === "court" && typeof options.courtIndex === "number" && lockedCourts.has(options.courtIndex)) {
+            event.preventDefault();
+            return;
+          }
+
           draggedPlayer = {
             player,
             sourceCourtIndex: options.courtIndex ?? null,
@@ -907,6 +921,10 @@
 
       function movePlayerToCourt(targetCourtIndex) {
         if (!draggedPlayer) return;
+
+        if (lockedCourts.has(targetCourtIndex)) {
+          return;
+        }
 
         const { player, sourceCourtIndex, sourceBenchIndex } = draggedPlayer;
         const targetCourt = currentAssignments.courts[targetCourtIndex];
@@ -970,6 +988,11 @@
 
       function bindDropZone(element, onDrop) {
         element.addEventListener("dragover", (event) => {
+          if (element.classList.contains("court-card") && lockedCourts.has(Number(element.dataset.courtIndex))) {
+            event.preventDefault();
+            element.classList.remove("drag-over");
+            return;
+          }
           event.preventDefault();
           element.classList.add("drag-over");
         });
@@ -981,6 +1004,9 @@
         element.addEventListener("drop", (event) => {
           event.preventDefault();
           element.classList.remove("drag-over");
+          if (element.classList.contains("court-card") && lockedCourts.has(Number(element.dataset.courtIndex))) {
+            return;
+          }
           onDrop();
         });
       }
