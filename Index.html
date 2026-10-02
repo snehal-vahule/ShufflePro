@@ -245,6 +245,11 @@
         background: #f97316;
       }
 
+      .badge.player-count-badge {
+        background: #8b5cf6;
+        border-color: rgba(167, 139, 250, 0.6);
+      }
+
       .court-grid {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
@@ -483,7 +488,10 @@
 
       <section class="card player-card" id="playersSection">
         <div class="player-header" id="playerToggle" aria-label="Toggle player list">
-          <h2>Players</h2>
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <h2>Players</h2>
+            <span id="playerCountBadge" class="badge player-count-badge" style="min-width: 28px; height: 22px; font-size: 0.72rem;">0</span>
+          </div>
           <button type="button" class="toggle-btn" aria-expanded="true">−</button>
         </div>
 
@@ -601,6 +609,11 @@
       }
 
       function renderPlayers() {
+        const playerCountBadge = document.getElementById("playerCountBadge");
+        if (playerCountBadge) {
+          playerCountBadge.textContent = String(players.length);
+        }
+
         playerList.innerHTML = "";
 
         if (players.length === 0) {
