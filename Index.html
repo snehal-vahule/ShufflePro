@@ -1140,6 +1140,13 @@
           return;
         }
 
+        const isDuplicate = players.some((player) => player.name.trim().toLowerCase() === name.toLowerCase());
+        if (isDuplicate) {
+          alert("Player name must be unique.");
+          playerNameInput.focus();
+          return;
+        }
+
         players.push({
           id: makePlayerId(),
           name,
