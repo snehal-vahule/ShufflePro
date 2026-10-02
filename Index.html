@@ -125,6 +125,20 @@
         background: rgba(239, 68, 68, 0.12);
       }
 
+      .danger.icon-button {
+        width: 38px;
+        height: 38px;
+        min-width: 38px;
+        min-height: 38px;
+        padding: 0;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 10px;
+        font-size: 1.1rem;
+        line-height: 1;
+      }
+
       .card h2 {
         margin-top: 0;
         margin-bottom: 12px;
@@ -173,6 +187,10 @@
         display: none;
       }
 
+      .player-card-body {
+        padding-top: 12px;
+      }
+
       .player-list {
         list-style: none;
         padding: 0;
@@ -204,14 +222,15 @@
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        min-width: 42px;
-        height: 30px;
-        padding: 4px 10px;
+        min-width: 32px;
+        height: 22px;
+        padding: 2px 8px;
         border-radius: 999px;
         color: #ffffff;
         border: 1px solid rgba(255, 255, 255, 0.15);
         font-weight: 700;
-        font-size: 0.76rem;
+        font-size: 0.65rem;
+        letter-spacing: 0.02em;
       }
 
       .badge.skill-beginner {
@@ -318,6 +337,10 @@
 
       .court-card.collapsed .court-body {
         display: none;
+      }
+
+      .court-body {
+        padding-top: 12px;
       }
 
       .court-card ul,
@@ -594,8 +617,11 @@
           const meta = createPlayerMeta(player);
 
           const deleteBtn = document.createElement("button");
-          deleteBtn.className = "danger";
-          deleteBtn.textContent = "Remove";
+          deleteBtn.className = "danger icon-button";
+          deleteBtn.type = "button";
+          deleteBtn.setAttribute("aria-label", `Remove ${player.name}`);
+          deleteBtn.title = `Remove ${player.name}`;
+          deleteBtn.textContent = "🗑";
           deleteBtn.addEventListener("click", () => {
             players.splice(index, 1);
             savePlayers();
