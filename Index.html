@@ -580,7 +580,7 @@
       }
 
       function getCourtCapacity() {
-        return matchType.value === "singles" ? 1 : 4;
+        return matchType.value === "singles" ? 2 : 4;
       }
 
       function createPlayerMeta(player) {
@@ -676,7 +676,7 @@
           };
         }
 
-        const playersPerCourt = mode === "singles" ? 1 : 4;
+        const playersPerCourt = mode === "singles" ? 2 : 4;
         const maxCourtPlayers = courtTotal * playersPerCourt;
 
         const mixed = mixPlayersBySkill(selectedPlayers);
@@ -688,7 +688,7 @@
         activePlayers.forEach((player, index) => {
           const courtIndex =
             mode === "singles"
-              ? index % courtTotal
+              ? Math.floor(index / playersPerCourt) % courtTotal
               : Math.floor(index / playersPerCourt) % courtTotal;
 
           courts[courtIndex].push(player);
