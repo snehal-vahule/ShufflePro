@@ -139,6 +139,52 @@
         line-height: 1;
       }
 
+      .app-popup,
+      .app-confirm {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 2000;
+      }
+
+      .app-popup.hidden,
+      .app-confirm.hidden {
+        display: none;
+      }
+
+      .app-popup-backdrop,
+      .app-confirm-backdrop {
+        position: absolute;
+        inset: 0;
+        background: rgba(2, 6, 23, 0.7);
+      }
+
+      .app-popup-dialog,
+      .app-confirm-dialog {
+        position: relative;
+        width: min(90vw, 360px);
+        background: #111827;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        box-shadow: 0 20px 45px rgba(15, 23, 42, 0.45);
+        padding: 22px 20px 18px;
+      }
+
+      .app-popup-message,
+      .app-confirm-message {
+        margin: 0 0 18px;
+        color: var(--text);
+        line-height: 1.5;
+      }
+
+      .app-confirm-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+      }
+
       .card h2 {
         margin-top: 0;
         margin-bottom: 12px;
@@ -575,6 +621,70 @@
       let dragScrollTimer = null;
       let lastPointerEvent = null;
 
+      function showPopup(message) {
+        let popup = document.getElementById("appPopup");
+        if (!popup) {
+          popup = document.createElement("div");
+          popup.id = "appPopup";
+          popup.className = "app-popup hidden";
+          popup.innerHTML = `
+            <div class="app-popup-backdrop"></div>
+            <div class="app-popup-dialog" role="alertdialog" aria-modal="true" aria-live="assertive">
+              <p class="app-popup-message"></p>
+              <button type="button" class="primary app-popup-close">OK</button>
+            </div>
+          `;
+          document.body.appendChild(popup);
+
+          popup.querySelector(".app-popup-close").addEventListener("click", () => {
+            popup.classList.add("hidden");
+          });
+
+          popup.querySelector(".app-popup-backdrop").addEventListener("click", () => {
+            popup.classList.add("hidden");
+          });
+        }
+
+        popup.querySelector(".app-popup-message").textContent = message;
+        popup.classList.remove("hidden");
+      }
+
+      function showConfirm(message, onConfirm) {
+        let confirmBox = document.getElementById("appConfirm");
+        if (!confirmBox) {
+          confirmBox = document.createElement("div");
+          confirmBox.id = "appConfirm";
+          confirmBox.className = "app-confirm hidden";
+          confirmBox.innerHTML = `
+            <div class="app-confirm-backdrop"></div>
+            <div class="app-confirm-dialog" role="dialog" aria-modal="true">
+              <p class="app-confirm-message"></p>
+              <div class="app-confirm-actions">
+                <button type="button" class="secondary app-confirm-cancel">Cancel</button>
+                <button type="button" class="primary app-confirm-ok">OK</button>
+              </div>
+            </div>
+          `;
+          document.body.appendChild(confirmBox);
+
+          confirmBox.querySelector(".app-confirm-backdrop").addEventListener("click", () => {
+            confirmBox.classList.add("hidden");
+          });
+          confirmBox.querySelector(".app-confirm-cancel").addEventListener("click", () => {
+            confirmBox.classList.add("hidden");
+          });
+        }
+
+        const confirmMessage = confirmBox.querySelector(".app-confirm-message");
+        const confirmOk = confirmBox.querySelector(".app-confirm-ok");
+        confirmMessage.textContent = message;
+        confirmOk.onclick = () => {
+          confirmBox.classList.add("hidden");
+          onConfirm();
+        };
+        confirmBox.classList.remove("hidden");
+      }
+
       function savePlayers() {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(players));
       }
@@ -948,7 +1058,7 @@
         }
 
         if (targetCourt.length >= getCourtCapacity()) {
-          alert("This court is full.");
+          showPopup("This court is full.");
           return;
         }
 
@@ -1174,14 +1284,14 @@
         const skill = playerSkillSelect.value;
 
         if (!name) {
-          alert("Please enter a player name.");
+          showPopup("Please enter a player name.");
           playerNameInput.focus();
           return;
         }
 
         const isDuplicate = players.some((player) => player.name.trim().toLowerCase() === name.toLowerCase());
         if (isDuplicate) {
-          alert("Player name must be unique.");
+          showPopup("Player name must be unique.");
           playerNameInput.focus();
           return;
         }
@@ -1204,14 +1314,13 @@
       function clearAll() {
         if (players.length === 0) return;
 
-        const confirmClear = confirm("Remove all players and reset the courts?");
-        if (!confirmClear) return;
-
-        players = [];
-        localStorage.removeItem(ASSIGNMENT_KEY);
-        savePlayers();
-        renderPlayers();
-        renderCourts();
+        showConfirm("Remove all players and reset the courts?", () => {
+          players = [];
+          localStorage.removeItem(ASSIGNMENT_KEY);
+          savePlayers();
+          renderPlayers();
+          renderCourts();
+        });
       }
 
       const playersSection = document.getElementById("playersSection");
@@ -1234,13 +1343,13 @@
 
       shuffleBtn.addEventListener("click", () => {
         if (players.length < 2) {
-          alert("Add at least 2 players to shuffle courts.");
+          showPopup("Add at least 2 players to shuffle courts.");
           return;
         }
 
         const courtTotal = Number(courtCountSelect.value);
         if (lockedCourts.size >= courtTotal) {
-          alert("Unlock at least one court before shuffling.");
+          showPopup("Unlock at least one court before shuffling.");
           return;
         }
 
@@ -1253,7 +1362,7 @@
         });
 
         if (remainingPlayers.length === 0) {
-          alert("All players are on locked courts.");
+          showPopup("All players are on locked courts.");
           return;
         }
 
