@@ -791,6 +791,27 @@
         return shuffleArray(mixed);
       }
 
+      function canAddPlayerToCourt(court, playerSkill) {
+        const playerSkillKey = String(playerSkill || "beginner").toLowerCase();
+        const courtSkills = court.map((courtPlayer) => String(courtPlayer.skill || "beginner").toLowerCase());
+
+        if (court.length >= 4) return false;
+
+        if (playerSkillKey === "advanced") {
+          return !courtSkills.includes("beginner");
+        }
+
+        if (playerSkillKey === "beginner") {
+          return !courtSkills.includes("advanced");
+        }
+
+        if (playerSkillKey === "intermediate") {
+          return !(courtSkills.includes("advanced") && courtSkills.includes("beginner"));
+        }
+
+        return true;
+      }
+
       function generateCourts(selectedPlayers, mode, courtTotal) {
         if (selectedPlayers.length === 0) {
           return {
@@ -801,23 +822,31 @@
 
         const playersPerCourt = mode === "singles" ? 2 : 4;
         const maxCourtPlayers = courtTotal * playersPerCourt;
-
         const mixed = mixPlayersBySkill(selectedPlayers);
         const activePlayers = mixed.slice(0, Math.min(mixed.length, maxCourtPlayers));
-        const bench = mixed.slice(Math.min(mixed.length, maxCourtPlayers));
-
+        const benches = mixed.slice(Math.min(mixed.length, maxCourtPlayers));
         const courts = Array.from({ length: courtTotal }, () => []);
 
-        activePlayers.forEach((player, index) => {
-          const courtIndex =
-            mode === "singles"
-              ? Math.floor(index / playersPerCourt) % courtTotal
-              : Math.floor(index / playersPerCourt) % courtTotal;
+        activePlayers.forEach((player) => {
+          const candidateIndexes = [];
 
-          courts[courtIndex].push(player);
+          courts.forEach((court, index) => {
+            if (court.length >= playersPerCourt) return;
+            if (canAddPlayerToCourt(court, player.skill)) {
+              candidateIndexes.push(index);
+            }
+          });
+
+          if (candidateIndexes.length === 0) {
+            benches.push(player);
+            return;
+          }
+
+          candidateIndexes.sort((a, b) => courts[a].length - courts[b].length);
+          courts[candidateIndexes[0]].push(player);
         });
 
-        return { courts, bench };
+        return { courts, bench: benches };
       }
 
       function refreshAssignmentsFromPlayers() {
