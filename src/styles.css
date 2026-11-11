@@ -15,6 +15,10 @@
   box-sizing: border-box;
 }
 
+.hidden {
+  display: none !important;
+}
+
 body {
   margin: 0;
   font-family: Arial, sans-serif;
@@ -50,6 +54,82 @@ body {
   border-radius: 16px;
   padding: 18px;
   box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+}
+
+.auth-card {
+  max-width: 460px;
+  margin: 0 auto;
+}
+
+.auth-card h2 {
+  margin-top: 0;
+  margin-bottom: 8px;
+}
+
+.auth-card > p {
+  color: var(--muted);
+}
+
+.auth-card form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.auth-card form label {
+  font-weight: 600;
+}
+
+.auth-card form input {
+  width: 100%;
+  margin-bottom: 6px;
+}
+
+.auth-card form button {
+  margin-top: 8px;
+}
+
+.auth-status {
+  min-height: 1.5em;
+  margin: 14px 0 0;
+}
+
+.auth-status.error {
+  color: #fca5a5;
+}
+
+.auth-links {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.link-button {
+  padding: 4px 0;
+  border: 0;
+  background: transparent;
+  color: var(--accent);
+  font-size: 0.9rem;
+  text-align: left;
+}
+
+.link-button:hover {
+  text-decoration: underline;
+}
+
+.account-bar {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 14px;
+  color: var(--muted);
+}
+
+.account-bar strong {
+  color: var(--text);
 }
 
 .input-row,

@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
@@ -13,66 +13,93 @@
         <p>Badminton player shuffling made simple</p>
       </header>
 
-      <section class="panel">
-        <div class="input-row">
-          <input id="playerName" type="text" placeholder="Player name" aria-label="Player name" />
-          <select id="playerSkill" aria-label="Skill level">
-            <option value="beginner">Beginner</option>
-            <option value="intermediate" selected>Intermediate</option>
-            <option value="advanced">Advanced</option>
-          </select>
-          <button id="addPlayerBtn" class="primary">Add player</button>
-        </div>
-
-        <div class="controls">
-          <label for="matchType">Match type:</label>
-          <select id="matchType">
-            <option value="doubles">Doubles</option>
-            <option value="singles">Singles</option>
-          </select>
-
-          <label for="courtCount">Courts:</label>
-          <select id="courtCount">
-            <option value="1">1</option>
-            <option value="2">2</option>
-            <option value="3">3</option>
-            <option value="4" selected>4</option>
-            <option value="5">5</option>
-            <option value="6">6</option>
-          </select>
-
-          <button id="shuffleBtn" class="primary">Shuffle courts</button>
-          <button id="resetBtn" class="secondary">Clear all</button>
-        </div>
-      </section>
-
-      <section class="card player-card" id="playersSection">
-        <div class="player-header" id="playerToggle" aria-label="Toggle player list">
-          <div style="display: flex; align-items: center; gap: 10px;">
-            <h2>Players</h2>
-            <span id="playerCountBadge" class="badge player-count-badge" style="min-width: 28px; height: 22px; font-size: 0.72rem;">0</span>
+      <section class="card auth-card" id="authSection">
+        <h2 id="authTitle">Sign in</h2>
+        <p id="authDescription">Sign in to manage your ShufflePro courts.</p>
+        <form id="authForm">
+          <label id="authEmailLabel" for="authEmail">Email</label>
+          <input id="authEmail" type="email" autocomplete="email" required />
+          <div id="authPasswordField">
+            <label id="authPasswordLabel" for="authPassword">Password</label>
+            <input id="authPassword" type="password" autocomplete="current-password" required />
           </div>
-          <button type="button" class="toggle-btn" aria-expanded="true">−</button>
-        </div>
-
-        <div class="player-card-body">
-          <ul id="playerList" class="player-list"></ul>
-        </div>
+          <button id="authSubmit" class="primary" type="submit">Sign in</button>
+        </form>
+        <p id="authStatus" class="auth-status" role="status" aria-live="polite"></p>
+        <nav class="auth-links" aria-label="Account options">
+          <button type="button" class="link-button" id="showForgotPassword">Forgot password?</button>
+          <button type="button" class="link-button" id="showRegister">Create an account</button>
+          <button type="button" class="link-button hidden" id="showLogin">Back to sign in</button>
+        </nav>
       </section>
 
-      <section class="card courts-wrapper">
-        <h2>Courts</h2>
-        <div id="courtsOutput" class="court-grid">
-          <p class="empty">No court assignments yet.</p>
+      <main class="app-shell hidden" id="appShell">
+        <div class="account-bar">
+          <span>Signed in as <strong id="accountEmail"></strong></span>
+          <button id="signOutBtn" class="secondary" type="button">Sign out</button>
         </div>
 
-        <div class="team-card" style="margin-top: 18px;">
-          <h3>Bench</h3>
-          <ul id="benchList">
-            <li class="empty">No players on bench.</li>
-          </ul>
-        </div>
-      </section>
+        <section class="panel">
+          <div class="input-row">
+            <input id="playerName" type="text" placeholder="Player name" aria-label="Player name" />
+            <select id="playerSkill" aria-label="Skill level">
+              <option value="beginner">Beginner</option>
+              <option value="intermediate" selected>Intermediate</option>
+              <option value="advanced">Advanced</option>
+            </select>
+            <button id="addPlayerBtn" class="primary">Add player</button>
+          </div>
+
+          <div class="controls">
+            <label for="matchType">Match type:</label>
+            <select id="matchType">
+              <option value="doubles">Doubles</option>
+              <option value="singles">Singles</option>
+            </select>
+
+            <label for="courtCount">Courts:</label>
+            <select id="courtCount">
+              <option value="1">1</option>
+              <option value="2">2</option>
+              <option value="3">3</option>
+              <option value="4" selected>4</option>
+              <option value="5">5</option>
+              <option value="6">6</option>
+            </select>
+
+            <button id="shuffleBtn" class="primary">Shuffle courts</button>
+            <button id="resetBtn" class="secondary">Clear all</button>
+          </div>
+        </section>
+
+        <section class="card player-card" id="playersSection">
+          <div class="player-header" id="playerToggle" aria-label="Toggle player list">
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <h2>Players</h2>
+              <span id="playerCountBadge" class="badge player-count-badge" style="min-width: 28px; height: 22px; font-size: 0.72rem;">0</span>
+            </div>
+            <button type="button" class="toggle-btn" aria-expanded="true">−</button>
+          </div>
+
+          <div class="player-card-body">
+            <ul id="playerList" class="player-list"></ul>
+          </div>
+        </section>
+
+        <section class="card courts-wrapper">
+          <h2>Courts</h2>
+          <div id="courtsOutput" class="court-grid">
+            <p class="empty">No court assignments yet.</p>
+          </div>
+
+          <div class="team-card" style="margin-top: 18px;">
+            <h3>Bench</h3>
+            <ul id="benchList">
+              <li class="empty">No players on bench.</li>
+            </ul>
+          </div>
+        </section>
+      </main>
     </div>
 
     <script type="module" src="./src/app.mjs"></script>

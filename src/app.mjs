@@ -8,6 +8,7 @@ import {
   makePlayerId,
   canAddPlayerToCourt
 } from "./assignmentLogic.mjs";
+import { initializeAuth } from "./auth.mjs";
 
 const state = {
   players: [],
@@ -19,6 +20,7 @@ const state = {
   dragScrollTimer: null,
   lastPointerEvent: null
 };
+let storageUserId = null;
 
 const elements = {
   playerNameInput: null,
@@ -41,16 +43,34 @@ function getCourtCapacity() {
   return elements.matchType.value === "singles" ? 2 : 4;
 }
 
+function getStorageKey(key) {
+  return `${key}:${storageUserId}`;
+}
+
+function setStorageUser(userId) {
+  storageUserId = userId;
+  [STORAGE_KEY, ASSIGNMENT_KEY, LOCKED_COURTS_KEY].forEach((key) => {
+    const userKey = getStorageKey(key);
+    if (localStorage.getItem(userKey) === null) {
+      const previousValue = localStorage.getItem(key);
+      if (previousValue !== null) {
+        localStorage.setItem(userKey, previousValue);
+        localStorage.removeItem(key);
+      }
+    }
+  });
+}
+
 function savePlayers() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state.players));
+  localStorage.setItem(getStorageKey(STORAGE_KEY), JSON.stringify(state.players));
 }
 
 function saveAssignments() {
-  localStorage.setItem(ASSIGNMENT_KEY, JSON.stringify(state.currentAssignments));
+  localStorage.setItem(getStorageKey(ASSIGNMENT_KEY), JSON.stringify(state.currentAssignments));
 }
 
 function saveLockedCourts() {
-  localStorage.setItem(LOCKED_COURTS_KEY, JSON.stringify(Array.from(state.lockedCourts).sort((a, b) => a - b)));
+  localStorage.setItem(getStorageKey(LOCKED_COURTS_KEY), JSON.stringify(Array.from(state.lockedCourts).sort((a, b) => a - b)));
 }
 
 function showPopup(message) {
@@ -667,7 +687,7 @@ function clearAll() {
 
   showConfirm("Remove all players and reset the courts?", () => {
     state.players = [];
-    localStorage.removeItem(ASSIGNMENT_KEY);
+    localStorage.removeItem(getStorageKey(ASSIGNMENT_KEY));
     savePlayers();
     renderPlayers();
     renderCourts();
@@ -756,10 +776,10 @@ function bindEvents() {
 }
 
 function hydrateState() {
-  state.players = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]").map(normalizePlayer);
-  state.lockedCourts = new Set(JSON.parse(localStorage.getItem(LOCKED_COURTS_KEY) || "[]"));
+  state.players = JSON.parse(localStorage.getItem(getStorageKey(STORAGE_KEY)) || "[]").map(normalizePlayer);
+  state.lockedCourts = new Set(JSON.parse(localStorage.getItem(getStorageKey(LOCKED_COURTS_KEY)) || "[]"));
 
-  const savedAssignments = JSON.parse(localStorage.getItem(ASSIGNMENT_KEY) || "null");
+  const savedAssignments = JSON.parse(localStorage.getItem(getStorageKey(ASSIGNMENT_KEY)) || "null");
   if (savedAssignments && Array.isArray(savedAssignments.courts) && Array.isArray(savedAssignments.bench)) {
     state.currentAssignments = {
       courts: savedAssignments.courts.map((court) => Array.isArray(court) ? court.map(normalizePlayer) : []),
@@ -786,10 +806,22 @@ function initialize() {
   elements.toggleBtn = document.querySelector(".toggle-btn");
   elements.playerCountBadge = document.getElementById("playerCountBadge");
 
-  hydrateState();
   bindEvents();
-  renderPlayers();
-  renderCourts();
+  initializeAuth({
+    onAuthenticated(user) {
+      setStorageUser(user.id);
+      hydrateState();
+      renderPlayers();
+      renderCourts();
+    },
+    onSignedOut() {
+      storageUserId = null;
+      state.players = [];
+      state.currentAssignments = { courts: [], bench: [] };
+      state.lockedCourts.clear();
+      state.collapsedCourtState.clear();
+    }
+  });
 }
 
 initialize();
