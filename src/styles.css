@@ -382,8 +382,7 @@ button {
   min-width: 0;
 }
 
-.court-lock-toggle,
-.court-toggle {
+.court-lock-toggle {
   width: 28px;
   height: 28px;
   min-width: 28px;
@@ -423,10 +422,6 @@ button {
 
 .court-card.locked .court-header h3 {
   color: #fca5a5;
-}
-
-.court-card.collapsed .court-body {
-  display: none;
 }
 
 .court-body {
@@ -521,7 +516,6 @@ button {
   }
 
   .toggle-btn,
-  .court-toggle,
   .court-lock-toggle {
     width: 32px;
     height: 32px;

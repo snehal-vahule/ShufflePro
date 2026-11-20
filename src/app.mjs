@@ -12,7 +12,6 @@ import {
 const state = {
   players: [],
   currentAssignments: { courts: [], bench: [] },
-  collapsedCourtState: new Set(),
   lockedCourts: new Set(),
   draggedPlayer: null,
   dragGhost: null,
@@ -495,7 +494,6 @@ function renderCourts() {
   if (state.players.length === 0) {
     elements.courtsOutput.innerHTML = '<p class="empty">No court assignments yet.</p>';
     elements.benchList.innerHTML = '<li class="empty">No players on bench.</li>';
-    state.collapsedCourtState.clear();
     state.lockedCourts.clear();
     saveLockedCourts();
     return;
@@ -509,12 +507,6 @@ function renderCourts() {
 
   state.currentAssignments = { courts, bench };
   saveAssignments();
-
-  Array.from(state.collapsedCourtState).forEach((courtIndex) => {
-    if (courtIndex < 0 || courtIndex >= courtTotal) {
-      state.collapsedCourtState.delete(courtIndex);
-    }
-  });
 
   Array.from(state.lockedCourts).forEach((courtIndex) => {
     if (courtIndex < 0 || courtIndex >= courtTotal) {
@@ -530,9 +522,6 @@ function renderCourts() {
   courts.forEach((court, index) => {
     const card = document.createElement("div");
     card.className = "court-card";
-    if (state.collapsedCourtState.has(index)) {
-      card.classList.add("collapsed");
-    }
     if (state.lockedCourts.has(index)) {
       card.classList.add("locked");
     }
@@ -569,25 +558,7 @@ function renderCourts() {
       renderCourts();
     });
 
-    const toggle = document.createElement("button");
-    toggle.type = "button";
-    toggle.className = "court-toggle";
-    toggle.textContent = state.collapsedCourtState.has(index) ? "+" : "−";
-    toggle.setAttribute("aria-expanded", String(!state.collapsedCourtState.has(index)));
-    toggle.addEventListener("click", (event) => {
-      event.stopPropagation();
-      const isCollapsed = card.classList.toggle("collapsed");
-      if (isCollapsed) {
-        state.collapsedCourtState.add(index);
-      } else {
-        state.collapsedCourtState.delete(index);
-      }
-      toggle.textContent = isCollapsed ? "+" : "−";
-      toggle.setAttribute("aria-expanded", String(!isCollapsed));
-    });
-
     controls.appendChild(lockToggle);
-    controls.appendChild(toggle);
     header.appendChild(title);
     header.appendChild(controls);
     card.appendChild(header);
