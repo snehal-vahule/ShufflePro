@@ -7,10 +7,24 @@
     <link rel="stylesheet" href="./src/styles.css" />
   </head>
   <body>
-    <div class="container">
+    <main id="loginScreen" class="login-screen">
+      <form id="loginForm" class="login-panel">
+        <h1>ShufflePro</h1>
+        <p>Sign in to manage your courts.</p>
+        <label for="username">Username</label>
+        <input id="username" name="username" type="text" autocomplete="username" required />
+        <label for="password">Password</label>
+        <input id="password" name="password" type="password" autocomplete="current-password" required />
+        <p id="loginError" class="login-error" role="alert" aria-live="polite"></p>
+        <button id="loginSubmit" class="primary" type="submit">Sign in</button>
+      </form>
+    </main>
+
+    <div id="appShell" class="container hidden">
       <header class="header">
         <h1>ShufflePro</h1>
         <p>Badminton player shuffling made simple</p>
+        <button id="logoutBtn" class="secondary" type="button">Sign out</button>
       </header>
 
       <section class="panel">
@@ -75,6 +89,6 @@
       </section>
     </div>
 
-    <script type="module" src="./src/app.mjs"></script>
+    <script type="module" src="./src/login.mjs"></script>
   </body>
 </html>
