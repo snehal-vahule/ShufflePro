@@ -1092,16 +1092,19 @@ function addPlayer() {
 }
 
 function clearAll() {
-  if (state.players.length === 0) return;
+  if (state.players.length === 0 && state.matchScores.length === 0) return;
 
-  showConfirm("Remove all players and reset the courts?", () => {
+  showConfirm("Clear all players, courts, and match scores?", () => {
     state.players = [];
     state.gameStartTimes = {};
+    state.matchScores = [];
     saveGameStartTimes();
+    localStorage.setItem(MATCH_SCORES_KEY, JSON.stringify(state.matchScores));
     localStorage.removeItem(ASSIGNMENT_KEY);
     savePlayers();
     renderPlayers();
     renderCourts();
+    renderMatchScores();
   });
 }
 
