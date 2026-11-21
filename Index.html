@@ -92,6 +92,19 @@
           </ul>
         </div>
       </section>
+
+      <section class="card match-scores-panel" id="matchScoresPanel">
+        <div class="bench-header">
+          <h2>Match Scores</h2>
+          <button id="matchScoresToggle" type="button" class="toggle-btn" aria-label="Collapse match scores" aria-controls="matchScoresBody" aria-expanded="true">−</button>
+        </div>
+        <div id="matchScoresBody" class="match-scores-body">
+          <p id="gamesPlayedStat" class="games-played-stat"></p>
+          <div id="matchScoresList" class="match-scores-list">
+            <p class="empty">No scores recorded yet.</p>
+          </div>
+        </div>
+      </section>
     </div>
 
     <script type="module" src="./src/login.mjs"></script>

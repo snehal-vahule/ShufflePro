@@ -4,6 +4,7 @@ import {
   LOCKED_COURTS_KEY,
   TEAM_ASSIGNMENTS_KEY,
   MATCH_SCORES_KEY,
+  GAME_START_TIMES_KEY,
   MATCH_TYPE_KEY,
   COURT_COUNT_KEY,
   normalizePlayer,
@@ -11,7 +12,7 @@ import {
   getSkillLabel,
   makePlayerId,
   canAddPlayerToCourt,
-  isValidMatchScore
+  isValidMatchResult
 } from "./assignmentLogic.mjs";
 
 const state = {
@@ -19,6 +20,7 @@ const state = {
   currentAssignments: { courts: [], bench: [] },
   teamAssignments: [],
   matchScores: [],
+  gameStartTimes: {},
   lockedCourts: new Set(),
   draggedPlayer: null,
   dragGhost: null,
@@ -39,6 +41,10 @@ const elements = {
   benchList: null,
   benchBody: null,
   benchToggle: null,
+  matchScoresBody: null,
+  matchScoresToggle: null,
+  gamesPlayedStat: null,
+  matchScoresList: null,
   playersSection: null,
   playerToggle: null,
   toggleBtn: null,
@@ -59,6 +65,10 @@ function saveAssignments() {
 
 function saveLockedCourts() {
   localStorage.setItem(LOCKED_COURTS_KEY, JSON.stringify(Array.from(state.lockedCourts).sort((a, b) => a - b)));
+}
+
+function saveGameStartTimes() {
+  localStorage.setItem(GAME_START_TIMES_KEY, JSON.stringify(state.gameStartTimes));
 }
 
 function saveTeamAssignments() {
@@ -97,26 +107,47 @@ function removePlayerFromTeams(courtIndex, playerId) {
   teams.team2 = teams.team2.filter((id) => id !== playerId);
 }
 
-function getMatchScoreKey(courtIndex, teams) {
-  const teamAIds = [...teams.team1].sort();
-  const teamBIds = [...teams.team2].sort();
-  return JSON.stringify([courtIndex, teamAIds, teamBIds]);
-}
-
 function getMatchScore(courtIndex) {
   const teams = state.teamAssignments[courtIndex];
   if (!teams) return null;
-  const key = getMatchScoreKey(courtIndex, teams);
-  return state.matchScores.find((match) => match.key === key) || null;
+  const players = state.currentAssignments.courts[courtIndex] || [];
+  const teamA = teams.team1.map((id) => players.find((player) => player.id === id)?.name).filter(Boolean).sort();
+  const teamB = teams.team2.map((id) => players.find((player) => player.id === id)?.name).filter(Boolean).sort();
+
+  return [...state.matchScores].reverse().find((match) => {
+    const savedTeamA = (match.teamA || []).map((player) => player.name).sort();
+    const savedTeamB = (match.teamB || []).map((player) => player.name).sort();
+    return JSON.stringify(teamA) === JSON.stringify(savedTeamA)
+      && JSON.stringify(teamB) === JSON.stringify(savedTeamB);
+  }) || null;
 }
 
-function showScoreDialog(courtIndex) {
+function makeMatchId() {
+  return window.crypto && typeof window.crypto.randomUUID === "function"
+    ? window.crypto.randomUUID()
+    : `match-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+function formatGameDuration(durationMs) {
+  if (!Number.isFinite(durationMs) || durationMs < 0) return "unavailable";
+
+  const totalSeconds = Math.floor(durationMs / 1000);
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+
+  if (hours > 0) return `${hours}h ${minutes}m`;
+  if (minutes > 0) return `${minutes}m ${seconds}s`;
+  return `${seconds}s`;
+}
+
+function showScoreDialog(courtIndex, matchToEdit = null) {
   let dialog = document.getElementById("scoreDialog");
   if (!dialog) {
     dialog = document.createElement("div");
     dialog.id = "scoreDialog";
     dialog.className = "app-score-dialog hidden";
-    const keypadButtons = Array.from({ length: 22 }, (_, score) => {
+    const keypadButtons = Array.from({ length: 31 }, (_, score) => {
       return `<button type="button" class="score-key" data-score="${score}" aria-label="Set score to ${score}">${score}</button>`;
     }).join("");
     dialog.innerHTML = `
@@ -126,11 +157,11 @@ function showScoreDialog(courtIndex) {
         <div class="score-keypad" role="group" aria-label="Choose a score">${keypadButtons}</div>
         <div class="score-team-row" data-team-index="0">
           <label class="score-team-label" for="teamAScore" data-team-label="a"></label>
-          <input id="teamAScore" name="teamAScore" type="number" min="0" max="21" step="1" inputmode="none" readonly aria-label="Team A score" />
+          <input id="teamAScore" name="teamAScore" type="number" min="0" max="30" step="1" inputmode="none" readonly aria-label="Team A score" />
         </div>
         <div class="score-team-row" data-team-index="1">
           <label class="score-team-label" for="teamBScore" data-team-label="b"></label>
-          <input id="teamBScore" name="teamBScore" type="number" min="0" max="21" step="1" inputmode="none" readonly aria-label="Team B score" />
+          <input id="teamBScore" name="teamBScore" type="number" min="0" max="30" step="1" inputmode="none" readonly aria-label="Team B score" />
         </div>
         <p class="score-error" role="alert" aria-live="polite"></p>
         <div class="app-confirm-actions">
@@ -171,52 +202,90 @@ function showScoreDialog(courtIndex) {
     });
     dialog.querySelector("form").addEventListener("submit", (event) => {
       event.preventDefault();
-      const activeCourtIndex = Number(dialog.dataset.courtIndex);
       const scoreAInput = dialog.querySelector("#teamAScore");
       const scoreBInput = dialog.querySelector("#teamBScore");
       const scoreA = scoreAInput.value === "" ? NaN : scoreAInput.valueAsNumber;
       const scoreB = scoreBInput.value === "" ? NaN : scoreBInput.valueAsNumber;
 
-      if (!isValidMatchScore(scoreA) || !isValidMatchScore(scoreB)) {
-        dialog.querySelector(".score-error").textContent = "Enter whole-number scores from 0 to 21.";
+      if (!isValidMatchResult(scoreA, scoreB)) {
+        dialog.querySelector(".score-error").textContent = "Winner must have a 2-point lead, or win 30-29.";
         return;
       }
 
-      const teams = state.teamAssignments[activeCourtIndex];
-      const courtPlayers = state.currentAssignments.courts[activeCourtIndex];
-      const teamA = teams.team1.map((id) => courtPlayers.find((player) => player.id === id)).filter(Boolean);
-      const teamB = teams.team2.map((id) => courtPlayers.find((player) => player.id === id)).filter(Boolean);
-      const key = getMatchScoreKey(activeCourtIndex, teams);
-      const record = {
-        key,
-        courtIndex: activeCourtIndex,
-        teamA: teamA.map((player) => ({ id: player.id, name: player.name })),
-        teamB: teamB.map((player) => ({ id: player.id, name: player.name })),
-        scoreA,
-        scoreB,
-        updatedAt: new Date().toISOString()
-      };
-      const existingIndex = state.matchScores.findIndex((match) => match.key === key);
+      const matchId = dialog.dataset.matchId;
+      const existingIndex = matchId
+        ? state.matchScores.findIndex((match) => match.id === matchId)
+        : -1;
+      let record;
       if (existingIndex >= 0) {
+        record = {
+          ...state.matchScores[existingIndex],
+          scoreA,
+          scoreB,
+          updatedAt: new Date().toISOString()
+        };
         state.matchScores[existingIndex] = record;
       } else {
+        const activeCourtIndex = Number(dialog.dataset.courtIndex);
+        const teams = state.teamAssignments[activeCourtIndex];
+        const courtPlayers = state.currentAssignments.courts[activeCourtIndex];
+        const teamA = teams.team1.map((id) => courtPlayers.find((player) => player.id === id)).filter(Boolean);
+        const teamB = teams.team2.map((id) => courtPlayers.find((player) => player.id === id)).filter(Boolean);
+        const scoredAt = new Date();
+        const startedAt = state.gameStartTimes[activeCourtIndex];
+        const startedAtMs = startedAt ? Date.parse(startedAt) : NaN;
+        const gameDurationMs = Number.isFinite(startedAtMs)
+          ? Math.max(0, scoredAt.getTime() - startedAtMs)
+          : null;
+        record = {
+          id: makeMatchId(),
+          teamA: teamA.map((player) => ({ name: player.name })),
+          teamB: teamB.map((player) => ({ name: player.name })),
+          scoreA,
+          scoreB,
+          startedAt: Number.isFinite(startedAtMs) ? startedAt : null,
+          scoredAt: scoredAt.toISOString(),
+          gameDurationMs,
+          playedAt: scoredAt.toISOString(),
+          updatedAt: scoredAt.toISOString()
+        };
         state.matchScores.push(record);
+        delete state.gameStartTimes[activeCourtIndex];
+        saveGameStartTimes();
+        const playersToBench = state.currentAssignments.courts[activeCourtIndex];
+        const playerIds = new Set(playersToBench.map((player) => player.id));
+        state.currentAssignments.bench = [
+          ...state.currentAssignments.bench.filter((player) => !playerIds.has(player.id)),
+          ...playersToBench
+        ];
+        state.currentAssignments.courts[activeCourtIndex] = [];
+        state.teamAssignments[activeCourtIndex] = { team1: [], team2: [] };
+        state.lockedCourts.delete(activeCourtIndex);
+        saveAssignments();
+        saveTeamAssignments();
+        saveLockedCourts();
       }
 
       localStorage.setItem(MATCH_SCORES_KEY, JSON.stringify(state.matchScores));
       closeDialog();
       renderCourts();
+      renderMatchScores();
     });
   }
 
-  const teams = state.teamAssignments[courtIndex];
-  const players = state.currentAssignments.courts[courtIndex];
-  const teamA = teams.team1.map((id) => players.find((player) => player.id === id)).filter(Boolean);
-  const teamB = teams.team2.map((id) => players.find((player) => player.id === id)).filter(Boolean);
-  const existingScore = getMatchScore(courtIndex);
+  const teams = courtIndex === null ? null : state.teamAssignments[courtIndex];
+  const players = courtIndex === null ? [] : state.currentAssignments.courts[courtIndex];
+  const teamA = matchToEdit
+    ? matchToEdit.teamA
+    : teams.team1.map((id) => players.find((player) => player.id === id)).filter(Boolean);
+  const teamB = matchToEdit
+    ? matchToEdit.teamB
+    : teams.team2.map((id) => players.find((player) => player.id === id)).filter(Boolean);
+  const existingScore = matchToEdit;
 
-  dialog.querySelector("#scoreDialogTitle").textContent = `Court ${courtIndex + 1} score`;
-  dialog.dataset.courtIndex = String(courtIndex);
+  dialog.querySelector("#scoreDialogTitle").textContent = matchToEdit ? "Edit match score" : `Court ${courtIndex + 1} score`;
+  dialog.dataset.courtIndex = courtIndex === null ? "" : String(courtIndex);
+  dialog.dataset.matchId = matchToEdit?.id || "";
   dialog.querySelector('[data-team-label="a"]').textContent = teamA.map((player) => player.name).join(" + ") || "No players";
   dialog.querySelector('[data-team-label="b"]').textContent = teamB.map((player) => player.name).join(" + ") || "No players";
   dialog.querySelector("#teamAScore").value = existingScore ? String(existingScore.scoreA) : "";
@@ -225,6 +294,88 @@ function showScoreDialog(courtIndex) {
   dialog.querySelector('.score-team-row[data-team-index="0"]').click();
   dialog.classList.remove("hidden");
   dialog.querySelector("#teamAScore").focus();
+}
+
+function renderMatchScores() {
+  elements.gamesPlayedStat.textContent = `Total games played: ${state.matchScores.length}`;
+  elements.matchScoresList.innerHTML = "";
+
+  if (state.matchScores.length === 0) {
+    const empty = document.createElement("p");
+    empty.className = "empty";
+    empty.textContent = "No scores recorded yet.";
+    elements.matchScoresList.appendChild(empty);
+    return;
+  }
+
+  [...state.matchScores].reverse().forEach((match) => {
+    const row = document.createElement("article");
+    row.className = "match-score-row";
+
+    const heading = document.createElement("div");
+    heading.className = "match-score-heading";
+    const gameTime = document.createElement("span");
+    gameTime.className = "game-time";
+    gameTime.textContent = `Game time: ${formatGameDuration(match.gameDurationMs)}`;
+    heading.append(gameTime);
+    row.appendChild(heading);
+
+    const teams = document.createElement("div");
+    teams.className = "match-score-teams";
+    const teamA = document.createElement("div");
+    const teamB = document.createElement("div");
+    const teamAWon = match.scoreA > match.scoreB;
+    const teamBWon = match.scoreB > match.scoreA;
+    teamA.className = `match-score-team${teamAWon ? " winner" : ""}`;
+    teamB.className = `match-score-team${teamBWon ? " winner" : ""}`;
+    teamA.setAttribute("aria-label", `Team A${teamAWon ? ", winner" : ""}`);
+    teamB.setAttribute("aria-label", `Team B${teamBWon ? ", winner" : ""}`);
+
+    const teamAPlayers = document.createElement("span");
+    teamAPlayers.textContent = (match.teamA || []).map((player) => player.name).join(" + ");
+    const teamAScore = document.createElement("strong");
+    teamAScore.textContent = String(match.scoreA);
+    const teamBPlayers = document.createElement("span");
+    teamBPlayers.textContent = (match.teamB || []).map((player) => player.name).join(" + ");
+    const teamBScore = document.createElement("strong");
+    teamBScore.textContent = String(match.scoreB);
+
+    teamA.append(teamAPlayers, teamAScore);
+    teamB.append(teamBPlayers, teamBScore);
+    teams.append(teamA, teamB);
+
+    const actions = document.createElement("div");
+    actions.className = "match-score-actions";
+    const editButton = document.createElement("button");
+    editButton.type = "button";
+    editButton.className = "secondary match-score-icon";
+    editButton.setAttribute("aria-label", "Edit score");
+    editButton.title = "Edit score";
+    editButton.textContent = "✎";
+    editButton.addEventListener("click", () => showScoreDialog(null, match));
+    const deleteButton = document.createElement("button");
+    deleteButton.type = "button";
+    deleteButton.className = "danger match-score-icon";
+    deleteButton.setAttribute("aria-label", "Delete score");
+    deleteButton.title = "Delete score";
+    deleteButton.textContent = "×";
+    deleteButton.addEventListener("click", () => {
+      showConfirm("Delete this match score?", () => {
+        state.matchScores = state.matchScores.filter((savedMatch) => savedMatch.id !== match.id);
+        localStorage.setItem(MATCH_SCORES_KEY, JSON.stringify(state.matchScores));
+        renderCourts();
+        renderMatchScores();
+      });
+    });
+    actions.append(editButton, deleteButton);
+
+    const resultLine = document.createElement("div");
+    resultLine.className = "match-score-result-line";
+    resultLine.append(teams, actions);
+    row.appendChild(resultLine);
+
+    elements.matchScoresList.appendChild(row);
+  });
 }
 
 function showPopup(message) {
@@ -733,6 +884,8 @@ function renderCourts() {
     saveTeamAssignments();
     state.lockedCourts.clear();
     saveLockedCourts();
+    state.gameStartTimes = {};
+    saveGameStartTimes();
     return;
   }
 
@@ -752,6 +905,16 @@ function renderCourts() {
     }
   });
   saveLockedCourts();
+
+  let gameStartTimesChanged = false;
+  Object.keys(state.gameStartTimes).forEach((courtIndex) => {
+    const index = Number(courtIndex);
+    if (!Number.isInteger(index) || index < 0 || index >= courtTotal || courts[index].length === 0) {
+      delete state.gameStartTimes[courtIndex];
+      gameStartTimesChanged = true;
+    }
+  });
+  if (gameStartTimesChanged) saveGameStartTimes();
 
   elements.courtsOutput.innerHTML = "";
   const grid = document.createElement("div");
@@ -789,6 +952,8 @@ function renderCourts() {
       event.stopPropagation();
       if (state.lockedCourts.has(index)) {
         state.lockedCourts.delete(index);
+        delete state.gameStartTimes[index];
+        saveGameStartTimes();
       } else {
         state.lockedCourts.add(index);
       }
@@ -837,31 +1002,42 @@ function renderCourts() {
       versus.setAttribute("aria-hidden", "true");
       teams.insertBefore(versus, teams.children[1]);
       body.appendChild(teams);
+    }
 
-      const score = getMatchScore(index);
-      const scoreRow = document.createElement("div");
-      scoreRow.className = "court-score-row";
+    const actionsRow = document.createElement("div");
+    actionsRow.className = "court-score-row";
+
+    if (court.length > 0) {
+      const startGameLink = document.createElement("button");
+      startGameLink.type = "button";
+      startGameLink.className = "start-game-link";
+      const gameStarted = Boolean(state.gameStartTimes[index]);
+      startGameLink.textContent = gameStarted ? "Game started" : "Start game";
+      startGameLink.disabled = gameStarted;
+      startGameLink.addEventListener("click", (event) => {
+        event.stopPropagation();
+        if (!state.gameStartTimes[index]) {
+          state.gameStartTimes[index] = new Date().toISOString();
+        }
+        state.lockedCourts.add(index);
+        saveGameStartTimes();
+        saveLockedCourts();
+        renderCourts();
+      });
+      actionsRow.appendChild(startGameLink);
 
       const scoreLink = document.createElement("button");
       scoreLink.type = "button";
       scoreLink.className = "score-link";
-      scoreLink.textContent = score ? "Edit score" : "Add score";
+      scoreLink.textContent = "Add score";
       scoreLink.addEventListener("click", (event) => {
         event.stopPropagation();
         showScoreDialog(index);
       });
-
-      if (score) {
-        const scoreLabel = document.createElement("span");
-        scoreLabel.className = "court-score";
-        scoreLabel.textContent = `Team A ${score.scoreA} - ${score.scoreB} Team B`;
-        scoreRow.appendChild(scoreLabel);
-      }
-
-      scoreRow.appendChild(scoreLink);
-      body.appendChild(scoreRow);
+      actionsRow.appendChild(scoreLink);
     }
 
+    body.appendChild(actionsRow);
     card.appendChild(body);
     grid.appendChild(card);
   });
@@ -920,6 +1096,8 @@ function clearAll() {
 
   showConfirm("Remove all players and reset the courts?", () => {
     state.players = [];
+    state.gameStartTimes = {};
+    saveGameStartTimes();
     localStorage.removeItem(ASSIGNMENT_KEY);
     savePlayers();
     renderPlayers();
@@ -938,6 +1116,13 @@ function toggleBenchSection() {
   elements.benchToggle.textContent = isCollapsed ? "+" : "−";
   elements.benchToggle.setAttribute("aria-expanded", String(!isCollapsed));
   elements.benchToggle.setAttribute("aria-label", isCollapsed ? "Expand bench" : "Collapse bench");
+}
+
+function toggleMatchScoresSection() {
+  const isCollapsed = elements.matchScoresBody.hidden = !elements.matchScoresBody.hidden;
+  elements.matchScoresToggle.textContent = isCollapsed ? "+" : "−";
+  elements.matchScoresToggle.setAttribute("aria-expanded", String(!isCollapsed));
+  elements.matchScoresToggle.setAttribute("aria-label", isCollapsed ? "Expand match scores" : "Collapse match scores");
 }
 
 function bindEvents() {
@@ -1016,6 +1201,7 @@ function bindEvents() {
   });
   elements.playerToggle.addEventListener("click", togglePlayersSection);
   elements.benchToggle.addEventListener("click", toggleBenchSection);
+  elements.matchScoresToggle.addEventListener("click", toggleMatchScoresSection);
 }
 
 function hydrateState() {
@@ -1031,10 +1217,26 @@ function hydrateState() {
 
   state.players = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]").map(normalizePlayer);
   state.lockedCourts = new Set(JSON.parse(localStorage.getItem(LOCKED_COURTS_KEY) || "[]"));
+  const savedGameStartTimes = JSON.parse(localStorage.getItem(GAME_START_TIMES_KEY) || "{}");
+  state.gameStartTimes = savedGameStartTimes && typeof savedGameStartTimes === "object" && !Array.isArray(savedGameStartTimes)
+    ? savedGameStartTimes
+    : {};
   const savedTeamAssignments = JSON.parse(localStorage.getItem(TEAM_ASSIGNMENTS_KEY) || "[]");
   state.teamAssignments = Array.isArray(savedTeamAssignments) ? savedTeamAssignments : [];
   const savedMatchScores = JSON.parse(localStorage.getItem(MATCH_SCORES_KEY) || "[]");
-  state.matchScores = Array.isArray(savedMatchScores) ? savedMatchScores : [];
+  state.matchScores = Array.isArray(savedMatchScores)
+    ? savedMatchScores.map((match) => {
+      const { courtIndex, key, ...savedMatch } = match;
+      return {
+        ...savedMatch,
+        id: savedMatch.id || makeMatchId(),
+        teamA: (savedMatch.teamA || []).map((player) => ({ name: player.name })),
+        teamB: (savedMatch.teamB || []).map((player) => ({ name: player.name })),
+        playedAt: savedMatch.playedAt || savedMatch.updatedAt || new Date().toISOString()
+      };
+    })
+    : [];
+  localStorage.setItem(MATCH_SCORES_KEY, JSON.stringify(state.matchScores));
 
   const savedAssignments = JSON.parse(localStorage.getItem(ASSIGNMENT_KEY) || "null");
   if (savedAssignments && Array.isArray(savedAssignments.courts) && Array.isArray(savedAssignments.bench)) {
@@ -1067,6 +1269,10 @@ function initialize() {
   elements.benchList = document.getElementById("benchList");
   elements.benchBody = document.getElementById("benchCardBody");
   elements.benchToggle = document.getElementById("benchToggle");
+  elements.matchScoresBody = document.getElementById("matchScoresBody");
+  elements.matchScoresToggle = document.getElementById("matchScoresToggle");
+  elements.gamesPlayedStat = document.getElementById("gamesPlayedStat");
+  elements.matchScoresList = document.getElementById("matchScoresList");
   elements.playersSection = document.getElementById("playersSection");
   elements.playerToggle = document.getElementById("playerToggle");
   elements.toggleBtn = document.querySelector(".toggle-btn");
@@ -1076,6 +1282,7 @@ function initialize() {
   bindEvents();
   renderPlayers();
   renderCourts();
+  renderMatchScores();
 }
 
 initialize();

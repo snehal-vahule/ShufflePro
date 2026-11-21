@@ -6,6 +6,7 @@ import {
   generateCourts,
   getSkillLabel,
   getSkillRank,
+  isValidMatchResult,
   isValidMatchScore,
   makePlayerId,
   mixPlayersBySkill,
@@ -49,14 +50,35 @@ test('getSkillRank and getSkillLabel return expected values', () => {
   assert.equal(getSkillLabel('advanced'), 'Advanced');
 });
 
-test('isValidMatchScore accepts whole numbers from 0 through 21', () => {
+test('isValidMatchScore accepts whole numbers from 0 through 30', () => {
   assert.equal(isValidMatchScore(0), true);
   assert.equal(isValidMatchScore(21), true);
+  assert.equal(isValidMatchScore(30), true);
   assert.equal(isValidMatchScore(10), true);
   assert.equal(isValidMatchScore(-1), false);
-  assert.equal(isValidMatchScore(22), false);
+  assert.equal(isValidMatchScore(31), false);
   assert.equal(isValidMatchScore(1.5), false);
   assert.equal(isValidMatchScore('21'), false);
+});
+
+test('isValidMatchResult accepts any winning score with a 2-point margin, plus 30-29', () => {
+  assert.equal(isValidMatchResult(10, 8), true);
+  assert.equal(isValidMatchResult(15, 13), true);
+  assert.equal(isValidMatchResult(16, 14), true);
+  assert.equal(isValidMatchResult(21, 18), true);
+  assert.equal(isValidMatchResult(15, 14), false);
+  assert.equal(isValidMatchResult(14, 13), false);
+  assert.equal(isValidMatchResult(21, 19), true);
+  assert.equal(isValidMatchResult(22, 20), true);
+  assert.equal(isValidMatchResult(29, 27), true);
+  assert.equal(isValidMatchResult(30, 29), true);
+  assert.equal(isValidMatchResult(30, 28), true);
+  assert.equal(isValidMatchResult(21, 20), false);
+  assert.equal(isValidMatchResult(20, 18), true);
+  assert.equal(isValidMatchResult(29, 28), false);
+  assert.equal(isValidMatchResult(30, 27), true);
+  assert.equal(isValidMatchResult(22, 18), true);
+  assert.equal(isValidMatchResult(31, 29), false);
 });
 
 test('canAddPlayerToCourt blocks illegal skill combinations', () => {

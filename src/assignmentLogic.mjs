@@ -3,6 +3,7 @@ export const ASSIGNMENT_KEY = "shuffleProAssignments";
 export const LOCKED_COURTS_KEY = "shuffleProLockedCourts";
 export const TEAM_ASSIGNMENTS_KEY = "shuffleProTeamAssignments";
 export const MATCH_SCORES_KEY = "shuffleProMatchScores";
+export const GAME_START_TIMES_KEY = "shuffleProGameStartTimes";
 export const MATCH_TYPE_KEY = "shuffleProMatchType";
 export const COURT_COUNT_KEY = "shuffleProCourtCount";
 
@@ -13,7 +14,15 @@ export const skillRankMap = {
 };
 
 export function isValidMatchScore(score) {
-  return Number.isInteger(score) && score >= 0 && score <= 21;
+  return Number.isInteger(score) && score >= 0 && score <= 30;
+}
+
+export function isValidMatchResult(scoreA, scoreB) {
+  if (!isValidMatchScore(scoreA) || !isValidMatchScore(scoreB)) return false;
+
+  const winnerScore = Math.max(scoreA, scoreB);
+  const scoreDifference = Math.abs(scoreA - scoreB);
+  return scoreDifference >= 2 || (winnerScore === 30 && scoreDifference === 1);
 }
 
 export function makePlayerId() {

@@ -563,7 +563,8 @@ button {
   font-weight: 700;
 }
 
-.score-link {
+.score-link,
+.start-game-link {
   border: 0;
   padding: 2px 0;
   background: transparent;
@@ -573,7 +574,8 @@ button {
   text-underline-offset: 3px;
 }
 
-.score-link:hover {
+.score-link:hover,
+.start-game-link:hover {
   color: #7dd3fc;
 }
 
@@ -661,6 +663,129 @@ button {
   padding-top: 12px;
 }
 
+.match-scores-panel {
+  margin-top: 24px;
+}
+
+.match-scores-body[hidden] {
+  display: none;
+}
+
+.games-played-stat {
+  margin: 14px 0;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.match-scores-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.match-score-row {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  background: #0b1220;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+
+.match-score-result-line {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.match-score-result-line .match-score-teams {
+  flex: 1;
+  min-width: 0;
+}
+
+.match-score-heading,
+.match-score-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.match-score-heading h3,
+.match-score-heading .game-time {
+  margin: 0;
+}
+
+.match-score-heading .game-time {
+  color: var(--muted);
+  font-size: 0.8rem;
+  text-align: right;
+}
+
+.match-score-teams {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.match-score-team {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  color: var(--muted);
+}
+
+.match-score-team span {
+  overflow-wrap: anywhere;
+}
+
+.match-score-team strong {
+  color: var(--text);
+  font-size: 1.15rem;
+}
+
+.match-score-team.winner {
+  border-color: rgba(74, 222, 128, 0.8);
+  background: rgba(34, 197, 94, 0.14);
+  color: #bbf7d0;
+}
+
+.match-score-team.winner strong {
+  color: #86efac;
+}
+
+.match-score-actions button {
+  padding: 0;
+}
+
+.match-score-actions .match-score-icon {
+  width: 34px;
+  height: 34px;
+  min-width: 34px;
+  min-height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  font-size: 1.15rem;
+  line-height: 1;
+}
+
+.match-score-actions .match-score-icon.danger {
+  color: #fca5a5;
+  border-color: #7f1d1d;
+}
+
+.match-score-actions .match-score-icon.danger:hover {
+  background: rgba(239, 68, 68, 0.12);
+}
+
 @media (max-width: 760px) {
   .container {
     padding: 14px;
@@ -680,6 +805,28 @@ button {
 
   .panel {
     padding: 14px;
+  }
+
+  .match-score-teams {
+    grid-template-columns: 1fr;
+  }
+
+  .match-score-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .match-score-heading .game-time {
+    text-align: left;
+  }
+
+  .match-score-result-line {
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  .match-score-teams {
+    grid-template-columns: 1fr;
   }
 
   .player-header,
