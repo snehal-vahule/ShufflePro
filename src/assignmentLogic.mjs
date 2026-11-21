@@ -2,12 +2,19 @@ export const STORAGE_KEY = "shuffleProPlayers";
 export const ASSIGNMENT_KEY = "shuffleProAssignments";
 export const LOCKED_COURTS_KEY = "shuffleProLockedCourts";
 export const TEAM_ASSIGNMENTS_KEY = "shuffleProTeamAssignments";
+export const MATCH_SCORES_KEY = "shuffleProMatchScores";
+export const MATCH_TYPE_KEY = "shuffleProMatchType";
+export const COURT_COUNT_KEY = "shuffleProCourtCount";
 
 export const skillRankMap = {
   beginner: 1,
   intermediate: 2,
   advanced: 3
 };
+
+export function isValidMatchScore(score) {
+  return Number.isInteger(score) && score >= 0 && score <= 21;
+}
 
 export function makePlayerId() {
   if (window.crypto && typeof window.crypto.randomUUID === "function") {

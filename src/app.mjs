@@ -3,17 +3,22 @@ import {
   ASSIGNMENT_KEY,
   LOCKED_COURTS_KEY,
   TEAM_ASSIGNMENTS_KEY,
+  MATCH_SCORES_KEY,
+  MATCH_TYPE_KEY,
+  COURT_COUNT_KEY,
   normalizePlayer,
   generateCourts,
   getSkillLabel,
   makePlayerId,
-  canAddPlayerToCourt
+  canAddPlayerToCourt,
+  isValidMatchScore
 } from "./assignmentLogic.mjs";
 
 const state = {
   players: [],
   currentAssignments: { courts: [], bench: [] },
   teamAssignments: [],
+  matchScores: [],
   lockedCourts: new Set(),
   draggedPlayer: null,
   dragGhost: null,
@@ -90,6 +95,136 @@ function removePlayerFromTeams(courtIndex, playerId) {
   if (!teams) return;
   teams.team1 = teams.team1.filter((id) => id !== playerId);
   teams.team2 = teams.team2.filter((id) => id !== playerId);
+}
+
+function getMatchScoreKey(courtIndex, teams) {
+  const teamAIds = [...teams.team1].sort();
+  const teamBIds = [...teams.team2].sort();
+  return JSON.stringify([courtIndex, teamAIds, teamBIds]);
+}
+
+function getMatchScore(courtIndex) {
+  const teams = state.teamAssignments[courtIndex];
+  if (!teams) return null;
+  const key = getMatchScoreKey(courtIndex, teams);
+  return state.matchScores.find((match) => match.key === key) || null;
+}
+
+function showScoreDialog(courtIndex) {
+  let dialog = document.getElementById("scoreDialog");
+  if (!dialog) {
+    dialog = document.createElement("div");
+    dialog.id = "scoreDialog";
+    dialog.className = "app-score-dialog hidden";
+    const keypadButtons = Array.from({ length: 22 }, (_, score) => {
+      return `<button type="button" class="score-key" data-score="${score}" aria-label="Set score to ${score}">${score}</button>`;
+    }).join("");
+    dialog.innerHTML = `
+      <div class="app-score-backdrop"></div>
+      <form class="app-score-form" role="dialog" aria-modal="true" aria-labelledby="scoreDialogTitle">
+        <h2 id="scoreDialogTitle"></h2>
+        <div class="score-keypad" role="group" aria-label="Choose a score">${keypadButtons}</div>
+        <div class="score-team-row" data-team-index="0">
+          <label class="score-team-label" for="teamAScore" data-team-label="a"></label>
+          <input id="teamAScore" name="teamAScore" type="number" min="0" max="21" step="1" inputmode="none" readonly aria-label="Team A score" />
+        </div>
+        <div class="score-team-row" data-team-index="1">
+          <label class="score-team-label" for="teamBScore" data-team-label="b"></label>
+          <input id="teamBScore" name="teamBScore" type="number" min="0" max="21" step="1" inputmode="none" readonly aria-label="Team B score" />
+        </div>
+        <p class="score-error" role="alert" aria-live="polite"></p>
+        <div class="app-confirm-actions">
+          <button type="button" class="secondary score-cancel">Cancel</button>
+          <button type="submit" class="primary">Save score</button>
+        </div>
+      </form>
+    `;
+    document.body.appendChild(dialog);
+
+    const closeDialog = () => dialog.classList.add("hidden");
+    dialog.querySelector(".app-score-backdrop").addEventListener("click", closeDialog);
+    dialog.querySelector(".score-cancel").addEventListener("click", closeDialog);
+    const scoreInputs = [dialog.querySelector("#teamAScore"), dialog.querySelector("#teamBScore")];
+    const selectTeam = (teamIndex) => {
+      dialog.dataset.activeTeamIndex = String(teamIndex);
+      dialog.querySelectorAll(".score-team-row").forEach((row) => {
+        const isSelected = Number(row.dataset.teamIndex) === teamIndex;
+        row.classList.toggle("selected", isSelected);
+        row.querySelector("input").setAttribute("aria-label", `${row.querySelector("label").textContent} score${isSelected ? ", selected" : ""}`);
+      });
+      const activeScore = scoreInputs[teamIndex].value;
+      dialog.querySelectorAll(".score-key").forEach((button) => {
+        button.classList.toggle("selected", activeScore !== "" && button.dataset.score === activeScore);
+      });
+    };
+    dialog.querySelectorAll(".score-team-row").forEach((row) => {
+      row.addEventListener("click", () => selectTeam(Number(row.dataset.teamIndex)));
+    });
+    dialog.querySelectorAll(".score-key").forEach((button) => {
+      button.addEventListener("click", () => {
+        const activeTeamIndex = Number(dialog.dataset.activeTeamIndex || 0);
+        scoreInputs[activeTeamIndex].value = button.dataset.score;
+        dialog.querySelectorAll(".score-key").forEach((keyButton) => keyButton.classList.remove("selected"));
+        button.classList.add("selected");
+        dialog.querySelector(".score-error").textContent = "";
+      });
+    });
+    dialog.querySelector("form").addEventListener("submit", (event) => {
+      event.preventDefault();
+      const activeCourtIndex = Number(dialog.dataset.courtIndex);
+      const scoreAInput = dialog.querySelector("#teamAScore");
+      const scoreBInput = dialog.querySelector("#teamBScore");
+      const scoreA = scoreAInput.value === "" ? NaN : scoreAInput.valueAsNumber;
+      const scoreB = scoreBInput.value === "" ? NaN : scoreBInput.valueAsNumber;
+
+      if (!isValidMatchScore(scoreA) || !isValidMatchScore(scoreB)) {
+        dialog.querySelector(".score-error").textContent = "Enter whole-number scores from 0 to 21.";
+        return;
+      }
+
+      const teams = state.teamAssignments[activeCourtIndex];
+      const courtPlayers = state.currentAssignments.courts[activeCourtIndex];
+      const teamA = teams.team1.map((id) => courtPlayers.find((player) => player.id === id)).filter(Boolean);
+      const teamB = teams.team2.map((id) => courtPlayers.find((player) => player.id === id)).filter(Boolean);
+      const key = getMatchScoreKey(activeCourtIndex, teams);
+      const record = {
+        key,
+        courtIndex: activeCourtIndex,
+        teamA: teamA.map((player) => ({ id: player.id, name: player.name })),
+        teamB: teamB.map((player) => ({ id: player.id, name: player.name })),
+        scoreA,
+        scoreB,
+        updatedAt: new Date().toISOString()
+      };
+      const existingIndex = state.matchScores.findIndex((match) => match.key === key);
+      if (existingIndex >= 0) {
+        state.matchScores[existingIndex] = record;
+      } else {
+        state.matchScores.push(record);
+      }
+
+      localStorage.setItem(MATCH_SCORES_KEY, JSON.stringify(state.matchScores));
+      closeDialog();
+      renderCourts();
+    });
+  }
+
+  const teams = state.teamAssignments[courtIndex];
+  const players = state.currentAssignments.courts[courtIndex];
+  const teamA = teams.team1.map((id) => players.find((player) => player.id === id)).filter(Boolean);
+  const teamB = teams.team2.map((id) => players.find((player) => player.id === id)).filter(Boolean);
+  const existingScore = getMatchScore(courtIndex);
+
+  dialog.querySelector("#scoreDialogTitle").textContent = `Court ${courtIndex + 1} score`;
+  dialog.dataset.courtIndex = String(courtIndex);
+  dialog.querySelector('[data-team-label="a"]').textContent = teamA.map((player) => player.name).join(" + ") || "No players";
+  dialog.querySelector('[data-team-label="b"]').textContent = teamB.map((player) => player.name).join(" + ") || "No players";
+  dialog.querySelector("#teamAScore").value = existingScore ? String(existingScore.scoreA) : "";
+  dialog.querySelector("#teamBScore").value = existingScore ? String(existingScore.scoreB) : "";
+  dialog.querySelector(".score-error").textContent = "";
+  dialog.querySelector('.score-team-row[data-team-index="0"]').click();
+  dialog.classList.remove("hidden");
+  dialog.querySelector("#teamAScore").focus();
 }
 
 function showPopup(message) {
@@ -702,6 +837,29 @@ function renderCourts() {
       versus.setAttribute("aria-hidden", "true");
       teams.insertBefore(versus, teams.children[1]);
       body.appendChild(teams);
+
+      const score = getMatchScore(index);
+      const scoreRow = document.createElement("div");
+      scoreRow.className = "court-score-row";
+
+      const scoreLink = document.createElement("button");
+      scoreLink.type = "button";
+      scoreLink.className = "score-link";
+      scoreLink.textContent = score ? "Edit score" : "Add score";
+      scoreLink.addEventListener("click", (event) => {
+        event.stopPropagation();
+        showScoreDialog(index);
+      });
+
+      if (score) {
+        const scoreLabel = document.createElement("span");
+        scoreLabel.className = "court-score";
+        scoreLabel.textContent = `Team A ${score.scoreA} - ${score.scoreB} Team B`;
+        scoreRow.appendChild(scoreLabel);
+      }
+
+      scoreRow.appendChild(scoreLink);
+      body.appendChild(scoreRow);
     }
 
     card.appendChild(body);
@@ -847,10 +1005,12 @@ function bindEvents() {
 
   elements.resetBtn.addEventListener("click", clearAll);
   elements.matchType.addEventListener("change", () => {
+    localStorage.setItem(MATCH_TYPE_KEY, elements.matchType.value);
     refreshAssignmentsFromPlayers();
     renderCourts();
   });
   elements.courtCountSelect.addEventListener("change", () => {
+    localStorage.setItem(COURT_COUNT_KEY, elements.courtCountSelect.value);
     refreshAssignmentsFromPlayers();
     renderCourts();
   });
@@ -859,13 +1019,32 @@ function bindEvents() {
 }
 
 function hydrateState() {
+  const savedMatchType = localStorage.getItem(MATCH_TYPE_KEY);
+  if (savedMatchType && Array.from(elements.matchType.options).some((option) => option.value === savedMatchType)) {
+    elements.matchType.value = savedMatchType;
+  }
+
+  const savedCourtCount = localStorage.getItem(COURT_COUNT_KEY);
+  if (savedCourtCount && Array.from(elements.courtCountSelect.options).some((option) => option.value === savedCourtCount)) {
+    elements.courtCountSelect.value = savedCourtCount;
+  }
+
   state.players = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]").map(normalizePlayer);
   state.lockedCourts = new Set(JSON.parse(localStorage.getItem(LOCKED_COURTS_KEY) || "[]"));
   const savedTeamAssignments = JSON.parse(localStorage.getItem(TEAM_ASSIGNMENTS_KEY) || "[]");
   state.teamAssignments = Array.isArray(savedTeamAssignments) ? savedTeamAssignments : [];
+  const savedMatchScores = JSON.parse(localStorage.getItem(MATCH_SCORES_KEY) || "[]");
+  state.matchScores = Array.isArray(savedMatchScores) ? savedMatchScores : [];
 
   const savedAssignments = JSON.parse(localStorage.getItem(ASSIGNMENT_KEY) || "null");
   if (savedAssignments && Array.isArray(savedAssignments.courts) && Array.isArray(savedAssignments.bench)) {
+    if (!savedCourtCount && savedAssignments.courts.length > 0) {
+      const savedCountFromAssignments = String(savedAssignments.courts.length);
+      if (Array.from(elements.courtCountSelect.options).some((option) => option.value === savedCountFromAssignments)) {
+        elements.courtCountSelect.value = savedCountFromAssignments;
+      }
+    }
+
     state.currentAssignments = {
       courts: savedAssignments.courts.map((court) => Array.isArray(court) ? court.map(normalizePlayer) : []),
       bench: Array.isArray(savedAssignments.bench) ? savedAssignments.bench.map(normalizePlayer) : []

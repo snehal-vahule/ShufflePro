@@ -6,6 +6,7 @@ import {
   generateCourts,
   getSkillLabel,
   getSkillRank,
+  isValidMatchScore,
   makePlayerId,
   mixPlayersBySkill,
   normalizePlayer
@@ -46,6 +47,16 @@ test('getSkillRank and getSkillLabel return expected values', () => {
   assert.equal(getSkillLabel('beginner'), 'Beginner');
   assert.equal(getSkillLabel('intermediate'), 'Intermediate');
   assert.equal(getSkillLabel('advanced'), 'Advanced');
+});
+
+test('isValidMatchScore accepts whole numbers from 0 through 21', () => {
+  assert.equal(isValidMatchScore(0), true);
+  assert.equal(isValidMatchScore(21), true);
+  assert.equal(isValidMatchScore(10), true);
+  assert.equal(isValidMatchScore(-1), false);
+  assert.equal(isValidMatchScore(22), false);
+  assert.equal(isValidMatchScore(1.5), false);
+  assert.equal(isValidMatchScore('21'), false);
 });
 
 test('canAddPlayerToCourt blocks illegal skill combinations', () => {
