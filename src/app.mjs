@@ -30,6 +30,8 @@ const elements = {
   matchType: null,
   courtCountSelect: null,
   benchList: null,
+  benchBody: null,
+  benchToggle: null,
   playersSection: null,
   playerToggle: null,
   toggleBtn: null,
@@ -651,6 +653,13 @@ function togglePlayersSection() {
   elements.toggleBtn.setAttribute("aria-expanded", String(!isCollapsed));
 }
 
+function toggleBenchSection() {
+  const isCollapsed = elements.benchBody.hidden = !elements.benchBody.hidden;
+  elements.benchToggle.textContent = isCollapsed ? "+" : "−";
+  elements.benchToggle.setAttribute("aria-expanded", String(!isCollapsed));
+  elements.benchToggle.setAttribute("aria-label", isCollapsed ? "Expand bench" : "Collapse bench");
+}
+
 function bindEvents() {
   elements.addPlayerBtn.addEventListener("click", addPlayer);
 
@@ -724,6 +733,7 @@ function bindEvents() {
     renderCourts();
   });
   elements.playerToggle.addEventListener("click", togglePlayersSection);
+  elements.benchToggle.addEventListener("click", toggleBenchSection);
 }
 
 function hydrateState() {
@@ -752,6 +762,8 @@ function initialize() {
   elements.matchType = document.getElementById("matchType");
   elements.courtCountSelect = document.getElementById("courtCount");
   elements.benchList = document.getElementById("benchList");
+  elements.benchBody = document.getElementById("benchCardBody");
+  elements.benchToggle = document.getElementById("benchToggle");
   elements.playersSection = document.getElementById("playersSection");
   elements.playerToggle = document.getElementById("playerToggle");
   elements.toggleBtn = document.querySelector(".toggle-btn");

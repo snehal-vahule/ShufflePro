@@ -79,9 +79,14 @@
         <div id="courtsOutput" class="court-grid">
           <p class="empty">No court assignments yet.</p>
         </div>
+      </section>
 
-        <div class="team-card" style="margin-top: 18px;">
-          <h3>Bench</h3>
+      <section class="team-card bench-wrapper">
+        <div class="bench-header">
+          <h2>Bench</h2>
+          <button id="benchToggle" type="button" class="toggle-btn" aria-label="Collapse bench" aria-controls="benchCardBody" aria-expanded="true">−</button>
+        </div>
+        <div id="benchCardBody" class="bench-card-body">
           <ul id="benchList">
             <li class="empty">No players on bench.</li>
           </ul>

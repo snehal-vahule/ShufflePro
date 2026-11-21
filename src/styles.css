@@ -485,6 +485,33 @@ button {
   margin-top: 24px;
 }
 
+.bench-wrapper {
+  margin-top: 24px;
+}
+
+.bench-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 36px;
+}
+
+.bench-header h2 {
+  margin: 0;
+  flex: 1;
+  min-width: 0;
+}
+
+.bench-header .toggle-btn {
+  display: inline-flex;
+  flex: 0 0 36px;
+}
+
+.bench-card-body {
+  padding-top: 12px;
+}
+
 @media (max-width: 760px) {
   .container {
     padding: 14px;
@@ -521,5 +548,9 @@ button {
     height: 32px;
     min-width: 32px;
     min-height: 32px;
+  }
+
+  .bench-header .toggle-btn {
+    flex-basis: 32px;
   }
 }
