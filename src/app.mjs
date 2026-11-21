@@ -2,6 +2,7 @@ import {
   STORAGE_KEY,
   ASSIGNMENT_KEY,
   LOCKED_COURTS_KEY,
+  TEAM_ASSIGNMENTS_KEY,
   normalizePlayer,
   generateCourts,
   getSkillLabel,
@@ -12,6 +13,7 @@ import {
 const state = {
   players: [],
   currentAssignments: { courts: [], bench: [] },
+  teamAssignments: [],
   lockedCourts: new Set(),
   draggedPlayer: null,
   dragGhost: null,
@@ -52,6 +54,42 @@ function saveAssignments() {
 
 function saveLockedCourts() {
   localStorage.setItem(LOCKED_COURTS_KEY, JSON.stringify(Array.from(state.lockedCourts).sort((a, b) => a - b)));
+}
+
+function saveTeamAssignments() {
+  localStorage.setItem(TEAM_ASSIGNMENTS_KEY, JSON.stringify(state.teamAssignments));
+}
+
+function reconcileTeamAssignments() {
+  state.teamAssignments = state.currentAssignments.courts.map((court, courtIndex) => {
+    const savedTeams = state.teamAssignments[courtIndex] || {};
+    const playerIds = new Set(court.map((player) => player.id));
+    const team1 = Array.isArray(savedTeams.team1)
+      ? savedTeams.team1.filter((id) => playerIds.has(id))
+      : [];
+    const team1Ids = new Set(team1);
+    const team2 = Array.isArray(savedTeams.team2)
+      ? savedTeams.team2.filter((id) => playerIds.has(id) && !team1Ids.has(id))
+      : [];
+    const assignedIds = new Set([...team1, ...team2]);
+
+    court.forEach((player) => {
+      if (assignedIds.has(player.id)) return;
+      const targetTeam = team1.length <= team2.length ? team1 : team2;
+      targetTeam.push(player.id);
+      assignedIds.add(player.id);
+    });
+
+    return { team1, team2 };
+  });
+  saveTeamAssignments();
+}
+
+function removePlayerFromTeams(courtIndex, playerId) {
+  const teams = state.teamAssignments[courtIndex];
+  if (!teams) return;
+  teams.team1 = teams.team1.filter((id) => id !== playerId);
+  teams.team2 = teams.team2.filter((id) => id !== playerId);
 }
 
 function showPopup(message) {
@@ -126,8 +164,11 @@ function createPlayerMeta(player) {
   label.textContent = player.name;
 
   const badge = document.createElement("span");
-  badge.className = `badge skill-${String(player.skill || "beginner").toLowerCase()}`;
-  badge.textContent = getSkillLabel(player.skill);
+  const skillLabel = getSkillLabel(player.skill);
+  badge.className = `badge skill-badge skill-${String(player.skill || "beginner").toLowerCase()}`;
+  badge.textContent = skillLabel[0];
+  badge.setAttribute("aria-label", `${skillLabel} skill level`);
+  badge.title = skillLabel;
 
   meta.appendChild(label);
   meta.appendChild(badge);
@@ -246,7 +287,7 @@ function clearDragState() {
     }
   }
 
-  document.querySelectorAll(".court-card, #benchList").forEach((element) => {
+  document.querySelectorAll(".court-card, .court-team, #benchList").forEach((element) => {
     element.classList.remove("drag-over");
   });
 
@@ -286,10 +327,15 @@ function moveDragGhost(event) {
 
   const target = document.elementFromPoint(event.clientX, event.clientY);
   const courtCard = target ? target.closest(".court-card") : null;
+  const courtTeam = target ? target.closest(".court-team") : null;
   const benchCard = target ? target.closest("#benchList") : null;
 
-  document.querySelectorAll(".court-card, #benchList").forEach((element) => {
-    element.classList.toggle("drag-over", element === courtCard || element === benchCard);
+  document.querySelectorAll(".court-card, .court-team, #benchList").forEach((element) => {
+    const isCourtTeam = element.classList.contains("court-team");
+    element.classList.toggle(
+      "drag-over",
+      isCourtTeam ? element === courtTeam : element === courtCard || element === benchCard
+    );
   });
 }
 
@@ -299,6 +345,7 @@ function handlePointerDrop(event) {
   event.preventDefault();
   const target = document.elementFromPoint(event.clientX, event.clientY);
   const courtCard = target ? target.closest(".court-card") : null;
+  const courtTeam = target ? target.closest(".court-team") : null;
   const benchListTarget = target ? target.closest("#benchList") : null;
 
   if (courtCard) {
@@ -307,7 +354,7 @@ function handlePointerDrop(event) {
       clearDragState();
       return;
     }
-    movePlayerToCourt(courtIndex);
+    movePlayerToCourt(courtIndex, courtTeam ? Number(courtTeam.dataset.teamIndex) : undefined);
   } else if (benchListTarget) {
     movePlayerToBench();
   }
@@ -394,7 +441,7 @@ function createDraggablePlayerItem(player, options = {}) {
   return item;
 }
 
-function movePlayerToCourt(targetCourtIndex) {
+function movePlayerToCourt(targetCourtIndex, targetTeamIndex) {
   if (!state.draggedPlayer) return;
 
   if (state.lockedCourts.has(targetCourtIndex)) {
@@ -405,7 +452,33 @@ function movePlayerToCourt(targetCourtIndex) {
   const targetCourt = state.currentAssignments.courts[targetCourtIndex];
   const playerAlreadyInTarget = targetCourt.some((courtPlayer) => courtPlayer.id === player.id);
 
-  if (sourceCourtIndex === targetCourtIndex || playerAlreadyInTarget) {
+  if (sourceCourtIndex === targetCourtIndex && playerAlreadyInTarget) {
+    if (targetTeamIndex !== 0 && targetTeamIndex !== 1) return;
+
+    const teams = state.teamAssignments[targetCourtIndex];
+    const sourceTeamIndex = teams.team1.includes(player.id) ? 0 : teams.team2.includes(player.id) ? 1 : -1;
+    if (sourceTeamIndex < 0 || sourceTeamIndex === targetTeamIndex) return;
+
+    const sourceTeam = sourceTeamIndex === 0 ? teams.team1 : teams.team2;
+    const targetTeam = targetTeamIndex === 0 ? teams.team1 : teams.team2;
+    const sourcePlayerIndex = sourceTeam.indexOf(player.id);
+    const teamCapacity = getCourtCapacity() / 2;
+
+    if (targetTeam.length < teamCapacity) {
+      sourceTeam.splice(sourcePlayerIndex, 1);
+      targetTeam.push(player.id);
+    } else {
+      const swappedPlayerId = targetTeam[0];
+      targetTeam[0] = player.id;
+      sourceTeam[sourcePlayerIndex] = swappedPlayerId;
+    }
+
+    saveTeamAssignments();
+    renderCourts();
+    return;
+  }
+
+  if (playerAlreadyInTarget) {
     return;
   }
 
@@ -414,12 +487,23 @@ function movePlayerToCourt(targetCourtIndex) {
     return;
   }
 
+  if (targetTeamIndex === 0 || targetTeamIndex === 1) {
+    const targetTeam = targetTeamIndex === 0
+      ? state.teamAssignments[targetCourtIndex].team1
+      : state.teamAssignments[targetCourtIndex].team2;
+    if (targetTeam.length >= getCourtCapacity() / 2) {
+      showPopup("This team is full.");
+      return;
+    }
+  }
+
   if (sourceCourtIndex !== null) {
     const sourceCourt = state.currentAssignments.courts[sourceCourtIndex];
     const sourceIndex = sourceCourt.findIndex((courtPlayer) => courtPlayer.id === player.id);
     if (sourceIndex >= 0) {
       sourceCourt.splice(sourceIndex, 1);
     }
+    removePlayerFromTeams(sourceCourtIndex, player.id);
   }
 
   if (sourceBenchIndex !== null) {
@@ -430,7 +514,14 @@ function movePlayerToCourt(targetCourtIndex) {
   }
 
   targetCourt.push(player);
+  if (targetTeamIndex === 0 || targetTeamIndex === 1) {
+    const targetTeam = targetTeamIndex === 0
+      ? state.teamAssignments[targetCourtIndex].team1
+      : state.teamAssignments[targetCourtIndex].team2;
+    targetTeam.push(player.id);
+  }
   saveAssignments();
+  saveTeamAssignments();
   renderCourts();
 }
 
@@ -449,6 +540,7 @@ function movePlayerToBench() {
     if (sourceIndex >= 0) {
       sourceCourt.splice(sourceIndex, 1);
     }
+    removePlayerFromTeams(sourceCourtIndex, player.id);
   }
 
   const existingBenchIndex = state.currentAssignments.bench.findIndex((benchPlayer) => benchPlayer.id === player.id);
@@ -458,6 +550,7 @@ function movePlayerToBench() {
 
   state.currentAssignments.bench.push(player);
   saveAssignments();
+  saveTeamAssignments();
   renderCourts();
 }
 
@@ -470,19 +563,24 @@ function bindDropZone(element, onDrop) {
     }
     event.preventDefault();
     element.classList.add("drag-over");
+    const teamTarget = event.target.closest(".court-team");
+    if (teamTarget) teamTarget.classList.add("drag-over");
   });
 
   element.addEventListener("dragleave", () => {
     element.classList.remove("drag-over");
+    element.querySelectorAll(".court-team").forEach((team) => team.classList.remove("drag-over"));
   });
 
   element.addEventListener("drop", (event) => {
     event.preventDefault();
     element.classList.remove("drag-over");
+    element.querySelectorAll(".court-team").forEach((team) => team.classList.remove("drag-over"));
     if (element.classList.contains("court-card") && state.lockedCourts.has(Number(element.dataset.courtIndex))) {
       return;
     }
-    onDrop();
+    const teamTarget = event.target.closest(".court-team");
+    onDrop(teamTarget ? Number(teamTarget.dataset.teamIndex) : undefined);
   });
 }
 
@@ -496,6 +594,8 @@ function renderCourts() {
   if (state.players.length === 0) {
     elements.courtsOutput.innerHTML = '<p class="empty">No court assignments yet.</p>';
     elements.benchList.innerHTML = '<li class="empty">No players on bench.</li>';
+    state.teamAssignments = [];
+    saveTeamAssignments();
     state.lockedCourts.clear();
     saveLockedCourts();
     return;
@@ -509,6 +609,7 @@ function renderCourts() {
 
   state.currentAssignments = { courts, bench };
   saveAssignments();
+  reconcileTeamAssignments();
 
   Array.from(state.lockedCourts).forEach((courtIndex) => {
     if (courtIndex < 0 || courtIndex >= courtTotal) {
@@ -528,7 +629,7 @@ function renderCourts() {
       card.classList.add("locked");
     }
     card.dataset.courtIndex = String(index);
-    bindDropZone(card, () => movePlayerToCourt(index));
+    bindDropZone(card, (teamIndex) => movePlayerToCourt(index, teamIndex));
 
     const header = document.createElement("div");
     header.className = "court-header";
@@ -568,20 +669,41 @@ function renderCourts() {
     const body = document.createElement("div");
     body.className = "court-body";
 
-    const list = document.createElement("ul");
-
     if (court.length === 0) {
-      const li = document.createElement("li");
-      li.textContent = "No players";
-      list.appendChild(li);
+      const empty = document.createElement("p");
+      empty.className = "empty";
+      empty.textContent = "No players";
+      body.appendChild(empty);
     } else {
-      court.forEach((player) => {
-        const li = createDraggablePlayerItem(player, { type: "court", courtIndex: index });
-        list.appendChild(li);
+      const teams = document.createElement("div");
+      teams.className = "court-teams";
+
+      const courtTeams = state.teamAssignments[index];
+      [courtTeams.team1, courtTeams.team2].forEach((teamPlayerIds, teamIndex) => {
+        const team = document.createElement("div");
+        team.className = "court-team";
+        team.dataset.teamIndex = String(teamIndex);
+        team.setAttribute("aria-label", `Team ${teamIndex + 1}`);
+
+        const teamList = document.createElement("ul");
+        const teamPlayers = teamPlayerIds.map((playerId) => court.find((player) => player.id === playerId));
+        teamPlayers.filter(Boolean).forEach((player) => {
+          const item = createDraggablePlayerItem(player, { type: "court", courtIndex: index });
+          teamList.appendChild(item);
+        });
+
+        team.appendChild(teamList);
+        teams.appendChild(team);
       });
+
+      const versus = document.createElement("span");
+      versus.className = "court-versus";
+      versus.textContent = "VS";
+      versus.setAttribute("aria-hidden", "true");
+      teams.insertBefore(versus, teams.children[1]);
+      body.appendChild(teams);
     }
 
-    body.appendChild(list);
     card.appendChild(body);
     grid.appendChild(card);
   });
@@ -739,6 +861,8 @@ function bindEvents() {
 function hydrateState() {
   state.players = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]").map(normalizePlayer);
   state.lockedCourts = new Set(JSON.parse(localStorage.getItem(LOCKED_COURTS_KEY) || "[]"));
+  const savedTeamAssignments = JSON.parse(localStorage.getItem(TEAM_ASSIGNMENTS_KEY) || "[]");
+  state.teamAssignments = Array.isArray(savedTeamAssignments) ? savedTeamAssignments : [];
 
   const savedAssignments = JSON.parse(localStorage.getItem(ASSIGNMENT_KEY) || "null");
   if (savedAssignments && Array.isArray(savedAssignments.courts) && Array.isArray(savedAssignments.bench)) {

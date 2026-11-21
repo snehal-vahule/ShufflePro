@@ -296,6 +296,14 @@ button {
   gap: 10px;
 }
 
+.player-item .player-meta,
+.bench-player .player-meta {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 20px;
+  flex: 1;
+  min-width: 0;
+}
+
 .player-meta {
   display: flex;
   align-items: center;
@@ -316,6 +324,14 @@ button {
   font-weight: 700;
   font-size: 0.65rem;
   letter-spacing: 0.02em;
+}
+
+.skill-badge {
+  width: 20px;
+  min-width: 20px;
+  height: 20px;
+  padding: 0;
+  font-size: 0.6rem;
 }
 
 .badge.skill-beginner {
@@ -426,6 +442,36 @@ button {
 
 .court-body {
   padding-top: 12px;
+}
+
+.court-teams {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+}
+
+.court-team ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.court-team {
+  min-height: 36px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+}
+
+.court-team.drag-over {
+  border-color: var(--accent);
+  background: rgba(56, 189, 248, 0.1);
+}
+
+.court-versus {
+  color: var(--accent);
+  font-size: 0.75rem;
+  font-weight: 700;
 }
 
 .court-card ul,

@@ -1,6 +1,7 @@
 export const STORAGE_KEY = "shuffleProPlayers";
 export const ASSIGNMENT_KEY = "shuffleProAssignments";
 export const LOCKED_COURTS_KEY = "shuffleProLockedCourts";
+export const TEAM_ASSIGNMENTS_KEY = "shuffleProTeamAssignments";
 
 export const skillRankMap = {
   beginner: 1,

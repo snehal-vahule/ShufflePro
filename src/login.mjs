@@ -30,7 +30,8 @@ elements.form.addEventListener("submit", async (event) => {
     elements.logout.addEventListener("click", () => window.location.reload());
   } catch (error) {
     console.error("Could not start ShufflePro.", error);
-    elements.error.textContent = "Could not start the app. Please try again.";
+    const details = error instanceof Error ? error.message : String(error);
+    elements.error.textContent = `Could not start the app: ${details}`;
   } finally {
     elements.submit.disabled = false;
   }
